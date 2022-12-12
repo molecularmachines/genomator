@@ -1,2 +1,2 @@
-# progenic
+# Genomator
 Protein-DNA Interaction
