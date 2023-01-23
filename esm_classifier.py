@@ -32,10 +32,10 @@ class ESMLinear(pl.LightningModule):
         self.lr = lr
         self.freeze = freeze
 
-    def _esm_inference(self, x):
+    def _esm_inference(self, x, y):
         # encode ESM tokens
         _, _, tokens = self.batch_converter(x)
-        tokens = tokens.to(x[1])
+        tokens = tokens.to(y)  # move to same device as input
         lens = (tokens != self.alphabet.padding_idx).sum(1)
 
         # ESM forward
@@ -51,9 +51,9 @@ class ESMLinear(pl.LightningModule):
         sequence_representations = torch.stack(sequence_representations)
         return sequence_representations
 
-    def step(self, x):
+    def step(self, x, y):
         # ESM layers
-        sequence_rep = self._esm_inference(x)
+        sequence_rep = self._esm_inference(x, y)
 
         # linear layer
         y_hat = self.out(sequence_rep)
@@ -65,7 +65,7 @@ class ESMLinear(pl.LightningModule):
         x = list(zip(x[0], x[1]))
 
         # run model on inputs
-        y_hat = self.step(x)
+        y_hat = self.step(x, y)
 
         # compute loss
         loss = F.cross_entropy(y_hat, y)
@@ -78,7 +78,7 @@ class ESMLinear(pl.LightningModule):
         x = list(zip(x[0], x[1]))
 
         # run model on inputs
-        y_hat = self.step(x)
+        y_hat = self.step(x, y)
 
         # compute loss
         loss = F.cross_entropy(y_hat, y)
@@ -97,7 +97,7 @@ class ESMLinear(pl.LightningModule):
         x = list(zip(x[0], x[1]))
 
         # run model on inputs
-        y_hat = self.step(x)
+        y_hat = self.step(x, y)
 
         # compute loss
         loss = F.cross_entropy(y_hat, y)
