@@ -32,20 +32,16 @@ class ESMLinear(pl.LightningModule):
         self.lr = lr
         self.freeze = freeze
 
-    def training_step(self, batch, batch_idx):
-        # unpack batch
-        x, y = batch
-        x = list(zip(x[0], x[1]))
-
+    def _esm_inference(self, x):
         # encode ESM tokens
         _, _, tokens = self.batch_converter(x)
-        tokens = tokens.to(y)
+        tokens = tokens.to(x[1])
         lens = (tokens != self.alphabet.padding_idx).sum(1)
 
         # ESM forward
         with torch.no_grad():
             results = self.esm(tokens, repr_layers=[33], return_contacts=False)
-        token_representations = results["representations"][33]
+            token_representations = results["representations"][33]
 
         # one representation for the entire sequence
         sequence_representations = []
@@ -53,14 +49,67 @@ class ESMLinear(pl.LightningModule):
             seq_repr = token_representations[i, 1:tokens_len - 1].mean(0)
             sequence_representations.append(seq_repr)
         sequence_representations = torch.stack(sequence_representations)
+        return sequence_representations
+
+    def step(self, x):
+        # ESM layers
+        sequence_rep = self._esm_inference(x)
 
         # linear layer
-        y_hat = self.out(sequence_representations)
+        y_hat = self.out(sequence_rep)
+        return y_hat
+
+    def training_step(self, batch, batch_idx):
+        # unpack batch
+        x, y = batch
+        x = list(zip(x[0], x[1]))
+
+        # run model on inputs
+        y_hat = self.step(x)
 
         # compute loss
         loss = F.cross_entropy(y_hat, y)
         self.log("train_loss", loss)
         return loss
+
+    def validation_step(self, batch, batch_idx):
+        # unpack batch
+        x, y = batch
+        x = list(zip(x[0], x[1]))
+
+        # run model on inputs
+        y_hat = self.step(x)
+
+        # compute loss
+        loss = F.cross_entropy(y_hat, y)
+        self.log("val_loss", loss)
+
+        # compute accuracy
+        preds = torch.argmin(y_hat, dim=1)
+        acc = (preds == y).sum() / len(y)
+        self.log("val_acc", acc)
+
+        return loss
+
+    def test_step(self, batch, batch_idx):
+        # unpack batch
+        x, y = batch
+        x = list(zip(x[0], x[1]))
+
+        # run model on inputs
+        y_hat = self.step(x)
+
+        # compute loss
+        loss = F.cross_entropy(y_hat, y)
+        self.log("test_loss", loss)
+
+        # compute accuracy
+        preds = torch.argmin(y_hat, dim=1)
+        acc = (preds == y).sum() / len(y)
+        self.log("test_acc", acc)
+
+        return loss
+
 
     def configure_optimizers(self):
         return optim.Adam(self.parameters(), lr=self.lr)
