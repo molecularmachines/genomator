@@ -104,7 +104,7 @@ class ESMLinear(pl.LightningModule):
         self.log("test_loss", loss)
 
         # compute accuracy
-        preds = torch.argmin(y_hat, dim=1)
+        preds = torch.argmax(y_hat, dim=1)
         acc = (preds == y).sum() / len(y)
         self.log("test_acc", acc)
 
