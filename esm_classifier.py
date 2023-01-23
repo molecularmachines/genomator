@@ -38,13 +38,15 @@ class ESMLinear(pl.LightningModule):
         x = list(zip(x[0], x[1]))
 
         # encode ESM tokens
-        _, _, x = self.batch_converter(x)
-        lens = (x != self.alphabet.padding_idx).sum(1)
+        _, _, tokens = self.batch_converter(x)
+        tokens.to(x)
+        lens = (tokens != self.alphabet.padding_idx).sum(1)
 
         # ESM forward
         with torch.no_grad():
-            results = self.esm(x, repr_layers=[33], return_contacts=False)
+            results = self.esm(tokens, repr_layers=[33], return_contacts=False)
         token_representations = results["representations"][33]
+        token_representations.to(x)
 
         # one representation for the entire sequence
         sequence_representations = []

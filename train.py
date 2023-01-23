@@ -1,4 +1,3 @@
-import torch
 import esm
 from argparse import ArgumentParser
 import pytorch_lightning as pl
@@ -14,7 +13,6 @@ TEST_FILE = "data/restriction_enzymes_test.txt"
 
 def cli_main():
     pl.seed_everything(42)
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     # ------------
     # args
@@ -40,7 +38,7 @@ def cli_main():
     # model
     # ------------
     num_labels = len(labels)
-    esm_model = esm.pretrained.esm2_t33_650M_UR50D().to(device)
+    esm_model = esm.pretrained.esm2_t33_650M_UR50D()
     model = ESMLinear(esm_model, num_labels, args.lr, args.freeze)
 
     # ------------
