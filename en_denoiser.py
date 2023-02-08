@@ -19,6 +19,7 @@ class EnDenoiser(pl.LightningModule):
                  lr=1e-3):
         super().__init__()
 
+        torch.set_default_dtype(torch.float64)
         self.transformer = EnTransformer(
             num_tokens=21,
             dim=dim,
@@ -57,6 +58,7 @@ class EnDenoiser(pl.LightningModule):
     def training_step(self, batch, batch_idx):
         # input variables
         masks, coords = batch.msks, batch.crds
+        masks = masks.bool()
 
         # run model on inputs
         feats, denoised = self.step(batch)
@@ -91,7 +93,7 @@ class EnDenoiser(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        return optim.Adam(self.parameters, lr=self.lr)
+        return optim.Adam(self.parameters(), lr=self.lr)
 
     @staticmethod
     def add_model_specific_args(parent_parser):
