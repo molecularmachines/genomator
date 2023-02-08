@@ -91,7 +91,7 @@ class EnDenoiser(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        return optim.Adam(self.parameterslr=self.lr)
+        return optim.Adam(self.parameters, lr=self.lr)
 
     @staticmethod
     def add_model_specific_args(parent_parser):
