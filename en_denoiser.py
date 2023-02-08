@@ -53,42 +53,29 @@ class EnDenoiser(pl.LightningModule):
 
         feats, denoised_coords = self.transformer(seq, noised_coords, mask=masks)
 
-        return feats, denoised_coords
+        loss = F.mse_loss(denoised_coords[masks], coords[masks])
+
+        return feats, denoised_coords, loss
 
     def training_step(self, batch, batch_idx):
-        # input variables
-        masks, coords = batch.msks, batch.crds
-        masks = masks.bool()
-
         # run model on inputs
-        feats, denoised = self.step(batch)
+        feats, denoised, loss = self.step(batch)
 
         # compute loss
-        loss = F.mse_loss(denoised[masks], coords[masks])
         self.log("train_loss", loss)
         return loss
 
     def validation_step(self, batch, batch_idx):
-        # input variables
-        masks, coords = batch.msks, batch.crds
-
         # run model on inputs
-        feats, denoised = self.step(batch)
+        feats, denoised, loss = self.step(batch)
 
-        # compute loss
-        loss = F.mse_loss(denoised[masks], coords[masks])
         self.log("val_loss", loss)
         return loss
 
     def test_step(self, batch, batch_idx):
-        # input variables
-        masks, coords = batch.msks, batch.crds
-
         # run model on inputs
-        feats, denoised = self.step(batch)
+        feats, denoised, loss = self.step(batch)
 
-        # compute loss
-        loss = F.mse_loss(denoised[masks], coords[masks])
         self.log("test_loss", loss)
         return loss
 
