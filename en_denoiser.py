@@ -1,5 +1,5 @@
 import torch
-from torch import nn, optim
+from torch import optim
 from argparse import ArgumentParser
 import torch.nn.functional as F
 import pytorch_lightning as pl
@@ -15,7 +15,8 @@ class EnDenoiser(pl.LightningModule):
                  heads=4,
                  depth=4,
                  rel_pos_emb=True,
-                 neighbors=16):
+                 neighbors=16,
+                 lr=1e-3):
         super().__init__()
 
         self.transformer = EnTransformer(
@@ -27,6 +28,8 @@ class EnDenoiser(pl.LightningModule):
             rel_pos_emb=rel_pos_emb,
             neighbors=neighbors
         )
+
+        self.lr = lr
 
     def step(self, x):
         seqs, coords, masks = x.seqs, x.crds, x.msks
@@ -88,7 +91,7 @@ class EnDenoiser(pl.LightningModule):
         return loss
 
     def configure_optimizers(self):
-        return optim.Adam(self.parameters(), lr=self.lr)
+        return optim.Adam(self.parameterslr=self.lr)
 
     @staticmethod
     def add_model_specific_args(parent_parser):

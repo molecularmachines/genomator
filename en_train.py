@@ -15,7 +15,6 @@ def cli_main():
     # ------------
     parser = ArgumentParser()
     parser.add_argument('--batch_size', default=2, type=int)
-    parser.add_argument('--accumulate_grad_batches', default=16, type=int)
     parser = pl.Trainer.add_argparse_args(parser)
     parser = EnDenoiser.add_model_specific_args(parser)
     args = parser.parse_args()
