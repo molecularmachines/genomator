@@ -1,3 +1,4 @@
+import torch
 from argparse import ArgumentParser
 import pytorch_lightning as pl
 
@@ -17,6 +18,7 @@ def cli_main():
     parser = pl.Trainer.add_argparse_args(parser)
     parser = EnDenoiser.add_model_specific_args(parser)
     args = parser.parse_args()
+    device = "gpu" if torch.cuda.is_available() else "cpu"
 
     # ------------
     # data
@@ -45,7 +47,7 @@ def cli_main():
     # ------------
     # training
     # ------------
-    trainer = pl.Trainer.from_argparse_args(args)
+    trainer = pl.Trainer.from_argparse_args(args, accelerator=device, devices=1)
     trainer.fit(model, sanity_loader, sanity_val_loader)
 
     # ------------
