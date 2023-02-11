@@ -42,7 +42,7 @@ def cli_main():
     # ------------
     # model
     # ------------
-    model = EnDenoiser()
+    model = EnDenoiser(denoise_step=args.step)
 
     # ------------
     # training

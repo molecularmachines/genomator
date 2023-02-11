@@ -90,5 +90,6 @@ class EnDenoiser(pl.LightningModule):
     def add_model_specific_args(parent_parser):
         parser = ArgumentParser(parents=[parent_parser], add_help=False)
         parser.add_argument('--lr', type=float, default=0.0001)
+        parser.add_argument('--step', type=float, default=0.0001)
         parser.add_argument('--freeze', type=bool, default=True)
         return parser
