@@ -35,7 +35,7 @@ class EnDenoiser(pl.LightningModule):
         self.lamb = denoise_step
 
     def noise_coords(self, coords, amount=0.01):
-        noise = torch.randn_like(coords)
+        noise = torch.randn_like(coords).to(coords)
         amount = amount.view(-1, 1, 1)
         return coords * (1 - amount) + noise * amount
 
@@ -59,7 +59,7 @@ class EnDenoiser(pl.LightningModule):
         masks = repeat(masks, 'b n -> b (n c)', c=3)
 
         # noise with random amount
-        amount = torch.rand(coords.shape[0])
+        amount = torch.rand(coords.shape[0]).to(coords)
         noised_coords = self.noise_coords(coords, amount)
 
         # forward through transformer
