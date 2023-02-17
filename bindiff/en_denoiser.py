@@ -34,11 +34,10 @@ class EnDenoiser(pl.LightningModule):
         self.lr = lr
         self.lamb = denoise_step
 
-    def denoise(self, seq, coords, masks):
-        noised_coords = coords + self.lamb * torch.randn_like(coords)
-        feats, denoised_coords = self.transformer(seq, noised_coords, mask=masks)
-        loss = F.mse_loss(denoised_coords[masks], coords[masks])
-        return feats, denoised_coords, loss
+    def noise_coords(self, coords, amount=0.01):
+        noise = torch.randn_like(coords)
+        amount = amount.view(-1, 1, 1)
+        return coords * (1 - amount) + noise * amount
 
     def step(self, x):
         # extract input
@@ -59,7 +58,15 @@ class EnDenoiser(pl.LightningModule):
         seq = repeat(seqs, 'b n -> b (n c)', c=3)
         masks = repeat(masks, 'b n -> b (n c)', c=3)
 
-        return self.denoise(seq, coords, masks)
+        # noise with random amount
+        amount = torch.rand(coords.shape[0])
+        noised_coords = self.noise_coords(coords, amount)
+
+        # forward through transformer
+        feats, denoised_coords = self.transformer(seq, noised_coords, mask=masks)
+        loss = F.mse_loss(denoised_coords[masks], coords[masks])
+
+        return feats, denoised_coords, loss
 
     def training_step(self, batch, batch_idx):
         # run model on inputs
