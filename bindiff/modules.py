@@ -95,8 +95,8 @@ class SinusoidalPositionEmbeddings(nn.Module):
 
     def forward(self, time):
         half_dim = self.dim // 2
-        embeddings = math.log(10000) / (half_dim - 1).to(time)
-        embeddings = torch.exp(torch.arange(half_dim) * -embeddings)
+        embeddings = math.log(10000) / (half_dim - 1)
+        embeddings = torch.exp(torch.arange(half_dim) * -embeddings).to(time)
         embeddings = time[:, None] * embeddings[None, :]
         embeddings = torch.cat((embeddings.sin(), embeddings.cos()), dim=-1)
         return embeddings
