@@ -51,7 +51,7 @@ def cli_main():
     # ------------
     # model
     # ------------
-    model = EnDenoiser(denoise_step=args.step)
+    model = EnDenoiser()
 
     # ------------
     # training
@@ -62,7 +62,7 @@ def cli_main():
     # ------------
     # testing
     # ------------
-    trainer.test(test_dataloaders=test_loader)
+    trainer.test(dataloaders=test_loader)
 
 
 if __name__ == '__main__':

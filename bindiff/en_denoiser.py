@@ -1,10 +1,11 @@
+import math
 import torch
 from torch import optim
 from argparse import ArgumentParser
 import torch.nn.functional as F
 import pytorch_lightning as pl
 from einops import rearrange, repeat
-from en_transformer.en_transformer import EnTransformer
+from modules import EnTransformer
 
 
 class EnDenoiser(pl.LightningModule):
@@ -16,7 +17,9 @@ class EnDenoiser(pl.LightningModule):
                  depth=4,
                  rel_pos_emb=True,
                  neighbors=16,
-                 denoise_step=1e-3,
+                 beta_small=2e-4,
+                 beta_large=0.02,
+                 timesteps=100,
                  lr=1e-3):
         super().__init__()
 
@@ -32,12 +35,45 @@ class EnDenoiser(pl.LightningModule):
         )
 
         self.lr = lr
-        self.lamb = denoise_step
+        self.b1 = beta_small
+        self.b2 = beta_large
+        self.timesteps = timesteps
 
-    def noise_coords(self, coords, amount=0.01):
-        noise = torch.randn_like(coords).to(coords)
-        amount = amount.view(-1, 1, 1)
-        return coords * (1 - amount) + noise * amount
+        # precompute all betas
+        self.betas = self.linear_beta_schedule()
+
+        # precompute all alphas
+        self.alphas = 1. - self.betas
+        self.alphas_cumprod = torch.cumprod(self.alphas, axis=0)
+        self.alphas_cumprod_prev = F.pad(self.alphas_cumprod[:-1], (1, 0), value=1.0)
+        self.sqrt_recip_alphas = torch.sqrt(1.0 / self.alphas)
+
+        # calculations for diffusion q(x_t | x_{t-1}) and others
+        self.sqrt_alphas_cumprod = torch.sqrt(self.alphas_cumprod)
+        self.sqrt_one_minus_alphas_cumprod = torch.sqrt(1. - self.alphas_cumprod)
+
+        # calculations for posterior q(x_{t-1} | x_t, x_0)
+        self.posterior_variance = self.betas * (1. - self.alphas_cumprod_prev) / (1. - self.alphas_cumprod)
+
+    def linear_beta_schedule(self):
+        return torch.linspace(self.b1, self.b2, self.timesteps)
+
+    def extract(self, a, t, x_shape):
+        batch_size = t.shape[0]
+        out = a.gather(-1, t.cpu())
+        return out.reshape(batch_size, *((1,) * (len(x_shape) - 1))).to(t.device)
+
+    def q_sample(self, x_start, t, noise=None):
+        if noise is None:
+            noise = torch.randn_like(x_start)
+
+        sqrt_alphas_cumprod_t = self.extract(self.sqrt_alphas_cumprod, t, x_start.shape)
+        sqrt_one_minus_alphas_cumprod_t = self.extract(
+            self.sqrt_one_minus_alphas_cumprod, t, x_start.shape
+        )
+
+        noised_x = sqrt_alphas_cumprod_t * x_start + sqrt_one_minus_alphas_cumprod_t * noise
+        return noised_x, noise
 
     def step(self, x):
         # extract input
@@ -59,11 +95,12 @@ class EnDenoiser(pl.LightningModule):
         masks = repeat(masks, 'b n -> b (n c)', c=3)
 
         # noise with random amount
-        amount = torch.rand(coords.shape[0]).to(coords)
-        noised_coords = self.noise_coords(coords, amount)
+        ts = torch.randint(0, self.timesteps, [coords.shape[0]])
+        noised_coords, noise = self.q_sample(coords, ts)
 
         # forward through transformer
-        feats, denoised_coords = self.transformer(seq, noised_coords, mask=masks)
+        # TODO: predict the noise not the original image
+        feats, denoised_coords = self.transformer(seq, noised_coords, ts, mask=masks)
         loss = F.mse_loss(denoised_coords[masks], coords[masks])
 
         return feats, denoised_coords, loss
@@ -97,6 +134,4 @@ class EnDenoiser(pl.LightningModule):
     def add_model_specific_args(parent_parser):
         parser = ArgumentParser(parents=[parent_parser], add_help=False)
         parser.add_argument('--lr', type=float, default=0.0001)
-        parser.add_argument('--step', type=float, default=0.0001)
-        parser.add_argument('--freeze', type=bool, default=True)
         return parser
