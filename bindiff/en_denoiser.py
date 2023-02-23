@@ -1,4 +1,3 @@
-import math
 import torch
 from torch import optim
 from argparse import ArgumentParser
@@ -6,6 +5,7 @@ import torch.nn.functional as F
 import pytorch_lightning as pl
 from einops import rearrange, repeat
 from modules import EnTransformer
+from tqdm import tqdm
 
 
 class EnDenoiser(pl.LightningModule):
@@ -75,7 +75,45 @@ class EnDenoiser(pl.LightningModule):
         noised_x = sqrt_alphas_cumprod_t * x_start + sqrt_one_minus_alphas_cumprod_t * noise
         return noised_x, noise
 
-    def step(self, x):
+    @torch.no_grad()
+    def p_sample(self, coords, seqs, masks, t, t_index):
+        betas_t = self.extract(self.betas, t, x.shape)
+        sqrt_one_minus_alphas_cumprod_t = self.extract(
+            self.sqrt_one_minus_alphas_cumprod, t, x.shape
+        )
+        sqrt_recip_alphas_t = self.extract(self.sqrt_recip_alphas, t, coords.shape)
+        _, prediction = self.transformer(seqs, coords, t, mask=masks)
+        model_mean = sqrt_recip_alphas_t * (
+            coords - betas_t * prediction / sqrt_one_minus_alphas_cumprod_t
+        )
+
+        if t_index == 0:
+            return model_mean
+
+        else:
+            posterior_variance_t = self.extract(self.posterior_variance, t, coords.shape)
+            noise = torch.randn_like(coords)
+            return model_mean + torch.sqrt(posterior_variance_t) * noise
+
+    @torch.no_grad()
+    def sample(self, x, timesteps):
+        coords, seqs, masks = self.prepare_inputs(x)
+        b = coords.size(0)
+
+        # start with random gaussian noise
+        res = torch.randn_like(coords)
+        results = []
+
+        # iterate over timesteps with p_sample
+        desc = 'sampling loop time step'
+        for i in tqdm(range(timesteps, 0, -1), desc=desc, total=timesteps):
+            ts = torch.full((b,), i)  # all samples same t
+            res = self.p_sample(res, seqs, masks, ts, i)
+            results.append(res)
+
+        return results
+
+    def prepare_inputs(self, x):
         # extract input
         seqs, coords, masks = x.seqs, x.crds, x.msks
 
@@ -94,16 +132,24 @@ class EnDenoiser(pl.LightningModule):
         seq = repeat(seqs, 'b n -> b (n c)', c=3)
         masks = repeat(masks, 'b n -> b (n c)', c=3)
 
+        return coords, seq, masks
+
+    def step(self, x):
+        coords, seq, masks = self.prepare_inputs(x)
+
         # noise with random amount
         ts = torch.randint(0, self.timesteps, [coords.shape[0]])
+
+        # forward diffusion
         noised_coords, noise = self.q_sample(coords, ts)
 
-        # forward through transformer
-        # TODO: predict the noise not the original image
-        feats, denoised_coords = self.transformer(seq, noised_coords, ts, mask=masks)
-        loss = F.mse_loss(denoised_coords[masks], coords[masks])
+        # predict noisy input with transformer
+        feats, prediction = self.transformer(seq, noised_coords, ts, mask=masks)
 
-        return feats, denoised_coords, loss
+        # loss between original and prediction
+        loss = F.mse_loss(prediction[masks], coords[masks])
+
+        return feats, prediction, loss
 
     def training_step(self, batch, batch_idx):
         # run model on inputs
@@ -134,4 +180,6 @@ class EnDenoiser(pl.LightningModule):
     def add_model_specific_args(parent_parser):
         parser = ArgumentParser(parents=[parent_parser], add_help=False)
         parser.add_argument('--lr', type=float, default=0.0001)
+        parser.add_argument('--beta_small', type=float, default=0.02)
+        parser.add_argument('--beta_large', type=float, default=0.2)
         return parser
