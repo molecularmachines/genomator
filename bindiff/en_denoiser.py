@@ -77,9 +77,9 @@ class EnDenoiser(pl.LightningModule):
 
     @torch.no_grad()
     def p_sample(self, coords, seqs, masks, t, t_index):
-        betas_t = self.extract(self.betas, t, x.shape)
+        betas_t = self.extract(self.betas, t, coords.shape)
         sqrt_one_minus_alphas_cumprod_t = self.extract(
-            self.sqrt_one_minus_alphas_cumprod, t, x.shape
+            self.sqrt_one_minus_alphas_cumprod, t, coords.shape
         )
         sqrt_recip_alphas_t = self.extract(self.sqrt_recip_alphas, t, coords.shape)
         _, prediction = self.transformer(seqs, coords, t, mask=masks)
