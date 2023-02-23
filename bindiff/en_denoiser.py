@@ -138,7 +138,7 @@ class EnDenoiser(pl.LightningModule):
         coords, seq, masks = self.prepare_inputs(x)
 
         # noise with random amount
-        ts = torch.randint(0, self.timesteps, [coords.shape[0]])
+        ts = torch.randint(0, self.timesteps, [coords.shape[0]]).to(coords).type(torch.int64)
 
         # forward diffusion
         noised_coords, noise = self.q_sample(coords, ts)
