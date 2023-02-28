@@ -24,6 +24,7 @@ class EnDenoiser(pl.LightningModule):
         super().__init__()
 
         torch.set_default_dtype(torch.float64)
+        self.save_hyperparameters()
         self.transformer = EnTransformer(
             num_tokens=21,
             dim=dim,
@@ -182,4 +183,8 @@ class EnDenoiser(pl.LightningModule):
         parser.add_argument('--lr', type=float, default=0.0001)
         parser.add_argument('--beta_small', type=float, default=0.02)
         parser.add_argument('--beta_large', type=float, default=0.2)
+        parser.add_argument('--dim', type=int, default=32)
+        parser.add_argument('--dim_head', type=int, default=64)
+        parser.add_argument('--depth', type=int, default=4)
+        parser.add_argument('--timesteps', type=int, default=100)
         return parser
