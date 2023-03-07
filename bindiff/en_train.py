@@ -15,8 +15,8 @@ def cli_main():
     # args
     # ------------
     parser = ArgumentParser()
-    parser.add_argument('--batch_size', default=2, type=int)
-    parser.add_argument('--devices', default='1', type=str)
+    parser.add_argument('--batch_size', default=8, type=int)
+    parser.add_argument('--device', default='1', type=str)
     parser = pl.Trainer.add_argparse_args(parser)
     parser = EnDenoiser.add_model_specific_args(parser)
     args = parser.parse_args()
@@ -57,8 +57,8 @@ def cli_main():
     # ------------
     # training
     # ------------
-    trainer = pl.Trainer.from_argparse_args(args, accelerator=device, devices=args.devices)
-    trainer.fit(model, sanity_loader, sanity_val_loader)
+    trainer = pl.Trainer.from_argparse_args(args, accelerator=device, devices=args.device)
+    trainer.fit(model, train_loader, val_loader)
 
     # ------------
     # testing

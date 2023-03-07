@@ -1,40 +1,59 @@
-import torch
+import os
 import sidechainnet as scn
 from en_denoiser import EnDenoiser
 from collate import prepare_dataloaders
 from preprocess import trim_dataset, standardize_dataset
 
-if __name__ == "__main__":
-    bs = 4
-    data = scn.load(12, thinning=30, batch_size=bs)
-    denoiser = EnDenoiser()
+CHECKPOINT_DIR = "lightning_logs/checkpoints"
+CHECKPOINT_NAME = "ex2_epoch80"
+CHECKPOINT_FILE = os.path.join(CHECKPOINT_DIR, CHECKPOINT_NAME + ".ckpt")
+
+
+def sample():
+    # TODO: params should be loaded from checkpoint
+    dim = 128
+    dim_head = 128
+    heads = 4
+    depth = 8
+    timesteps = 100
+
+    # load model from checkpoint
+    model = EnDenoiser.load_from_checkpoint(CHECKPOINT_FILE,
+                                            dim=dim,
+                                            dim_head=dim_head,
+                                            heads=heads,
+                                            depth=depth,
+                                            timesteps=timesteps)
+    # load data for reference
+    batch_size = 1
+    data = scn.load(
+        casp_version=12,
+        thinning=30,
+        batch_size=batch_size,
+        dynamic_batching=False
+    )
 
     # preprocess data
-    dataset_prefixes = ('train', 'valid', 'test')
+    dataset_prefixes = ('train')
     datasets = [d for d in data.keys() if d.startswith(dataset_prefixes)]
     for d in datasets:
         dataset = trim_dataset(data[d])
         dataset = standardize_dataset(dataset)
         data[d] = dataset
-    data_loaders = prepare_dataloaders(data, True, batch_size=bs)
-
-    # data loaders
+    data_loaders = prepare_dataloaders(data, True, batch_size=batch_size)
     train_loader = data_loaders['train']
-    val_loader = data_loaders['train-eval']
-    test_loader = data_loaders['test']
 
-    sanity_loader = data_loaders['valid-10']
-    sanity_val_loader = data_loaders['valid-20']
+    # create initial structure
+    batch = next(iter(train_loader))
 
-    # fetch one batch
-    b = next(iter(sanity_loader))
+    # sample from model
+    results = model.sample(batch, timesteps)
+    res = {
+        "original": batch,
+        "results": results
+    }
+    return res
 
-    # visualize
-    seq_batch = torch.argmax(b.seqs, dim=-1)
-    builder = scn.BatchedStructureBuilder(seq_batch=seq_batch, crd_batch=b.crds)
-    struct = builder.build()
-    builder.to_3Dmol(0)
 
-    # sample like batch
-    timesteps = 10
-    samples = denoiser.sample(b, timesteps)
+if __name__ == "__main__":
+    results = sample()

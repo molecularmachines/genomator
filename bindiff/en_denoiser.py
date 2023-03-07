@@ -107,7 +107,7 @@ class EnDenoiser(pl.LightningModule):
 
         # iterate over timesteps with p_sample
         desc = 'sampling loop time step'
-        for i in tqdm(range(timesteps, 0, -1), desc=desc, total=timesteps):
+        for i in tqdm(range(timesteps - 1, 0, -1), desc=desc, total=timesteps):
             ts = torch.full((b,), i)  # all samples same t
             res = self.p_sample(res, seqs, masks, ts, i)
             results.append(res)
