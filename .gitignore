@@ -4,3 +4,4 @@ venv
 data
 .DS_STORE
 sidechainnet_data/
+lightning_logs/

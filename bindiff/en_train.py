@@ -1,10 +1,14 @@
 import torch
 from argparse import ArgumentParser
 import pytorch_lightning as pl
-from preprocess import trim_dataset, standardize_dataset
+from preprocess import trim_dataset, standardize_dataset, StandardizeTransform
 from en_denoiser import EnDenoiser
 import sidechainnet as scn
 from collate import prepare_dataloaders
+from moleculib.protein.dataset import ProteinDataset
+from moleculib.protein.loader import ProteinDataLoader
+from moleculib.protein.batch import PadBatch
+from torch.utils.data import DataLoader
 
 
 def cli_main():
@@ -15,7 +19,7 @@ def cli_main():
     # args
     # ------------
     parser = ArgumentParser()
-    parser.add_argument('--batch_size', default=8, type=int)
+    parser.add_argument('--batch_size', default=4, type=int)
     parser.add_argument('--device', default='1', type=str)
     parser = pl.Trainer.add_argparse_args(parser)
     parser = EnDenoiser.add_model_specific_args(parser)
@@ -25,29 +29,26 @@ def cli_main():
     # ------------
     # data
     # ------------
-    data = scn.load(
-        casp_version=12,
-        thinning=30,
-        batch_size=args.batch_size,
-        dynamic_batching=False
-    )
+    TRAIN_DIR = "data/cath_sanity/train"
+    VAL_DIR = "data/cath_sanity/val"
+    TEST_DIR = "data/cath_sanity/test"
 
-    # preprocess data
-    dataset_prefixes = ('train', 'valid', 'test')
-    datasets = [d for d in data.keys() if d.startswith(dataset_prefixes)]
-    for d in datasets:
-        dataset = trim_dataset(data[d])
-        dataset = standardize_dataset(dataset)
-        data[d] = dataset
-    data_loaders = prepare_dataloaders(data, True, batch_size=args.batch_size)
+    transform = StandardizeTransform()
 
-    # data loaders
-    train_loader = data_loaders['train']
-    val_loader = data_loaders['train-eval']
-    test_loader = data_loaders['test']
+    train_dataset = ProteinDataset(TRAIN_DIR, transform=[transform], preload=True)
+    train_loader = DataLoader(train_dataset,
+                              collate_fn=PadBatch.collate,
+                              batch_size=args.batch_size)
 
-    sanity_loader = data_loaders['valid-10']
-    sanity_val_loader = data_loaders['valid-20']
+    val_dataset = ProteinDataset(VAL_DIR, transform=[transform], preload=True)
+    val_loader = DataLoader(val_dataset,
+                            collate_fn=PadBatch.collate,
+                            batch_size=args.batch_size)
+
+    test_dataset = ProteinDataset(TEST_DIR, transform=[transform], preload=True)
+    test_loader = DataLoader(test_dataset,
+                             collate_fn=PadBatch.collate,
+                             batch_size=args.batch_size)
 
     # ------------
     # model

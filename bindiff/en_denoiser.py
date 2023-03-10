@@ -26,7 +26,7 @@ class EnDenoiser(pl.LightningModule):
         torch.set_default_dtype(torch.float64)
         self.save_hyperparameters()
         self.transformer = EnTransformer(
-            num_tokens=21,
+            num_tokens=23,
             dim=dim,
             dim_head=dim_head,
             heads=heads,
@@ -116,22 +116,18 @@ class EnDenoiser(pl.LightningModule):
 
     def prepare_inputs(self, x):
         # extract input
-        seqs, coords, masks = x.seqs, x.crds, x.msks
+        seqs, coords, masks = x.residue_token, x.atom_coord, x.atom_mask
 
         # type matching for transformer
-        seqs = seqs.argmax(dim=-1)
         coords = coords.type(torch.float64)
-        masks = masks.bool()
-
-        # arrange in residues atom format (14 atoms max)
-        coords = rearrange(coords, 'b (l s) c -> b l s c', s=14)
 
         # keeping only the backbone coordinates
         coords = coords[:, :, 0:3, :]
+        masks = masks[:, :, 0:3]
         coords = rearrange(coords, 'b l s c -> b (l s) c')
+        masks = rearrange(masks, 'b l s -> b (l s)')
 
         seq = repeat(seqs, 'b n -> b (n c)', c=3)
-        masks = repeat(masks, 'b n -> b (n c)', c=3)
 
         return coords, seq, masks
 
@@ -154,17 +150,19 @@ class EnDenoiser(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         # run model on inputs
+        batch_size = batch.atom_coord.shape[0]
         feats, denoised, loss = self.step(batch)
 
         # compute loss
-        self.log("train_loss", loss)
+        self.log("train_loss", loss, batch_size=batch_size)
         return loss
 
     def validation_step(self, batch, batch_idx):
         # run model on inputs
+        batch_size = batch.atom_coord.shape[0]
         feats, denoised, loss = self.step(batch)
 
-        self.log("val_loss", loss)
+        self.log("val_loss", loss, batch_size=batch_size)
         return loss
 
     def test_step(self, batch, batch_idx):
