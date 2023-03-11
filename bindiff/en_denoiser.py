@@ -139,6 +139,7 @@ class EnDenoiser(pl.LightningModule):
 
         # forward diffusion
         noised_coords, noise = self.q_sample(coords, ts)
+        ts = ts.type(torch.float64)
 
         # predict noisy input with transformer
         feats, prediction = self.transformer(seq, noised_coords, ts, mask=masks)
@@ -168,8 +169,9 @@ class EnDenoiser(pl.LightningModule):
     def test_step(self, batch, batch_idx):
         # run model on inputs
         feats, denoised, loss = self.step(batch)
+        batch_size = batch.atom_coord.shape[0]
 
-        self.log("test_loss", loss)
+        self.log("test_loss", loss, batch_size=batch_size)
         return loss
 
     def configure_optimizers(self):
