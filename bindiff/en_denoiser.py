@@ -20,6 +20,7 @@ class EnDenoiser(pl.LightningModule):
                  beta_small=2e-4,
                  beta_large=0.02,
                  timesteps=100,
+                 schedule='linear',
                  lr=1e-3):
         super().__init__()
 
@@ -107,7 +108,7 @@ class EnDenoiser(pl.LightningModule):
 
         # iterate over timesteps with p_sample
         desc = 'sampling loop time step'
-        for i in tqdm(range(timesteps - 1, 0, -1), desc=desc, total=timesteps):
+        for i in tqdm(range(timesteps, 0, -1), desc=desc, total=timesteps):
             ts = torch.full((b,), i)  # all samples same t
             res = self.p_sample(res, seqs, masks, ts, i)
             results.append(res)
@@ -122,12 +123,12 @@ class EnDenoiser(pl.LightningModule):
         coords = coords.type(torch.float64)
 
         # keeping only the backbone coordinates
-        coords = coords[:, :, 0:3, :]
-        masks = masks[:, :, 0:3]
+        coords = coords[:, :, 0:4, :]
+        masks = masks[:, :, 0:4]
         coords = rearrange(coords, 'b l s c -> b (l s) c')
         masks = rearrange(masks, 'b l s -> b (l s)')
 
-        seq = repeat(seqs, 'b n -> b (n c)', c=3)
+        seq = repeat(seqs, 'b n -> b (n c)', c=4)
 
         return coords, seq, masks
 
