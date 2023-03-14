@@ -100,11 +100,12 @@ def cli_main():
     # ------------
     # training
     # ------------
+    devices = [int(x) for x in args.device.split(',')]
     trainer = pl.Trainer.from_argparse_args(
         args,
         default_root_dir=checkpoint_path,
         accelerator=device,
-        devices=args.device,
+        devices=devices,
         logger=logger,
         callbacks=[checkpoint_callback]
     )
