@@ -1,3 +1,4 @@
+import os
 import torch
 from argparse import ArgumentParser
 import pytorch_lightning as pl
@@ -6,6 +7,8 @@ from en_denoiser import EnDenoiser
 from moleculib.protein.dataset import ProteinDataset
 from moleculib.protein.batch import PadBatch
 from torch.utils.data import DataLoader
+from aim.pytorch_lightning import AimLogger
+from datetime import datetime
 
 
 def cli_main():
@@ -32,36 +35,68 @@ def cli_main():
 
     transform = StandardizeTransform()
 
+    # train
     train_dataset = ProteinDataset(TRAIN_DIR, transform=[transform], preload=True)
-    train_loader = DataLoader(train_dataset,
-                              collate_fn=PadBatch.collate,
-                              batch_size=args.batch_size)
+    train_loader = DataLoader(
+        train_dataset,
+        collate_fn=PadBatch.collate,
+        batch_size=args.batch_size
+    )
 
+    # validation
     val_dataset = ProteinDataset(VAL_DIR, transform=[transform], preload=True)
-    val_loader = DataLoader(val_dataset,
-                            collate_fn=PadBatch.collate,
-                            batch_size=args.batch_size)
+    val_loader = DataLoader(
+        val_dataset,
+        collate_fn=PadBatch.collate,
+        batch_size=args.batch_size
+    )
 
+    # test
     test_dataset = ProteinDataset(TEST_DIR, transform=[transform], preload=True)
-    test_loader = DataLoader(test_dataset,
-                             collate_fn=PadBatch.collate,
-                             batch_size=args.batch_size)
+    test_loader = DataLoader(
+        test_dataset,
+        collate_fn=PadBatch.collate,
+        batch_size=args.batch_size
+    )
 
     # ------------
     # model
     # ------------
-    model = EnDenoiser(dim=args.dim,
-                       dim_head=args.dim_head,
-                       beta_small=args.beta_small,
-                       beta_large=args.beta_large,
-                       lr=args.lr,
-                       depth=args.depth,
-                       timesteps=args.timesteps)
+    model = EnDenoiser(
+        dim=args.dim,
+        dim_head=args.dim_head,
+        beta_small=args.beta_small,
+        beta_large=args.beta_large,
+        lr=args.lr,
+        depth=args.depth,
+        timesteps=args.timesteps
+    )
+
+    # ------------
+    # logging
+    # ------------
+    now = datetime.now()
+    date = now.strftime("%Y%m%d_%H%M%S")
+    ex_name = f'ex_{date}'
+    logger = AimLogger(
+        experiment=ex_name,
+        train_metric_prefix='train_',
+        val_metric_prefix='val_'
+    )
+    checkpoint_path = os.path.join("checkpoints", ex_name)
+    if not os.path.exists(checkpoint_path):
+        os.makedirs(checkpoint_path)
 
     # ------------
     # training
     # ------------
-    trainer = pl.Trainer.from_argparse_args(args, accelerator=device, devices=args.device)
+    trainer = pl.Trainer.from_argparse_args(
+        args,
+        default_root_dir=checkpoint_path,
+        accelerator=device,
+        devices=args.device,
+        logger=logger
+    )
     trainer.fit(model, train_loader, val_loader)
 
     # ------------
