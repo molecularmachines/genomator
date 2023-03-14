@@ -4,7 +4,7 @@ from argparse import ArgumentParser
 import torch.nn.functional as F
 import pytorch_lightning as pl
 from einops import rearrange, repeat
-from modules import EnTransformer
+from en_transformer import EnTransformer
 from tqdm import tqdm
 
 

@@ -379,7 +379,7 @@ class EquivariantAttention(nn.Module):
 
         # generate and apply rotary embeddings
 
-        rel_dist = -rel_dist
+        rel_dist = -rel_dist * 1
         rel_dist = rearrange(rel_dist, 'b i j -> b 1 i j 1')
 
         if self.rel_pos_emb:
