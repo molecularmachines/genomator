@@ -55,11 +55,12 @@ class EnDenoiser(pl.LightningModule):
             raise AttributeError(err)
 
         # precompute all alphas
-        self.alphas,
-        self.alphas_cumprod,
-        self.sqrt_alphas_cumprod,
-        self.sqrt_one_minus_alphas_cumprod,
-        self.posterior_variance = beta_schedule.compute_alphas(self.betas)
+        a, ac, sqac, sq1ac, pv = beta_schedule.compute_alphas(self.betas)
+        self.alphas = a
+        self.alphas_cumprod = ac
+        self.sqrt_alphas_cumprod = sqac
+        self.sqrt_alphas_cumprod = sq1ac
+        self.posterior_variance = pv
 
     def extract(self, a, t, x_shape):
         batch_size = t.shape[0]
