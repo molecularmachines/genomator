@@ -153,6 +153,34 @@ class EnDenoiser(pl.LightningModule):
 
         return feats, prediction, loss
 
+    def step(self, x):
+        """ 
+        Fully reconstruct protein from noise
+        """
+        coords, seq, masks = self.prepare_inputs(x)
+        pair_mask = rearrange(masks, 'b i -> b i ()') & rearrange(masks, 'b j -> b () j')
+
+
+        # noise with random amount
+        ts = torch.randint(0, 1, [coords.shape[0]]).to(coords).type(torch.int64)
+
+        # forward diffusion
+        noised_coords, noise = self.q_sample(coords, ts)
+        noised_coords = noised_coords * masks.type(torch.float64)[..., None]
+        ts = ts.type(torch.float64)
+
+        # predict noisy input with transformer
+        feats, prediction = self.transformer(seq, noise, ts, mask=masks)
+        
+        dist_map = lambda x: torch.norm(rearrange(x, 'b i c -> b i () c') - rearrange(x, 'b j c -> b () j c'), dim=-1)
+        target_dist_map = dist_map(coords)
+        pred_dist_map = dist_map(prediction)
+
+        loss = 100 * F.mse_loss(pred_dist_map[pair_mask], target_dist_map[pair_mask])
+
+        return feats, prediction, loss
+
+
     def training_step(self, batch, batch_idx):
         # run model on inputs
         batch_size = batch.atom_coord.shape[0]
@@ -188,9 +216,9 @@ class EnDenoiser(pl.LightningModule):
         parser.add_argument('--beta_small', type=float, default=0.02)
         parser.add_argument('--beta_large', type=float, default=0.2)
         parser.add_argument('--dim', type=int, default=64)
-        parser.add_argument('--dim_head', type=int, default=64)
+        parser.add_argument('--dim_head', type=int, default=32)
         parser.add_argument('--depth', type=int, default=4)
-        parser.add_argument('--timesteps', type=int, default=100)
+        parser.add_argument('--timesteps', type=int, default=1000)
         return parser
 
 
