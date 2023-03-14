@@ -2,6 +2,7 @@ import os
 import torch
 from argparse import ArgumentParser
 import pytorch_lightning as pl
+from pytorch_lightning.callbacks import ModelCheckpoint
 from preprocess import StandardizeTransform
 from en_denoiser import EnDenoiser
 from moleculib.protein.dataset import ProteinDataset
@@ -83,9 +84,18 @@ def cli_main():
         train_metric_prefix='train_',
         val_metric_prefix='val_'
     )
+
+    # checkpoint
     checkpoint_path = os.path.join("checkpoints", ex_name)
     if not os.path.exists(checkpoint_path):
         os.makedirs(checkpoint_path)
+
+    checkpoint_callback = ModelCheckpoint(
+        dirpath=checkpoint_path,
+        save_top_k=2,
+        monitor="val_loss",
+        mode="min"
+    )
 
     # ------------
     # training
@@ -95,7 +105,8 @@ def cli_main():
         default_root_dir=checkpoint_path,
         accelerator=device,
         devices=args.device,
-        logger=logger
+        logger=logger,
+        callbacks=[checkpoint_callback]
     )
     trainer.fit(model, train_loader, val_loader)
 
