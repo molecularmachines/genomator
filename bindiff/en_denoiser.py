@@ -149,7 +149,7 @@ class EnDenoiser(pl.LightningModule):
         error_correction = (prediction - noised_coords)
 
         # loss between original and prediction
-        loss = F.mse_loss(error_correction[masks], noise[masks])
+        loss = F.mse_loss(10 * error_correction[masks], 10 * noise[masks])
 
         return feats, prediction, loss
 
@@ -187,8 +187,10 @@ class EnDenoiser(pl.LightningModule):
         parser.add_argument('--lr', type=float, default=0.0001)
         parser.add_argument('--beta_small', type=float, default=0.02)
         parser.add_argument('--beta_large', type=float, default=0.2)
-        parser.add_argument('--dim', type=int, default=256)
+        parser.add_argument('--dim', type=int, default=64)
         parser.add_argument('--dim_head', type=int, default=64)
-        parser.add_argument('--depth', type=int, default=10)
+        parser.add_argument('--depth', type=int, default=4)
         parser.add_argument('--timesteps', type=int, default=100)
         return parser
+
+

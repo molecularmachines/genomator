@@ -9,6 +9,7 @@ from einops.layers.torch import Rearrange
 
 import torch.utils.checkpoint as checkpoint
 # helper functions
+import math
 
 def exists(val):
     return val is not None
@@ -478,6 +479,7 @@ class EnTransformer(nn.Module):
         self,
         feats,
         coors,
+        timesteps,
         edges = None,
         mask = None,
         adj_mat = None,
@@ -489,8 +491,8 @@ class EnTransformer(nn.Module):
         if exists(self.token_emb):
             feats = self.token_emb(feats)
 
-        feats = feats + self.time_mlp(timesteps)
-
+        if exists(timesteps):
+            feats = feats + self.time_mlp(timesteps)[:, None, :]
 
         if exists(self.edge_emb):
             assert exists(edges), 'edges must be passed in as (batch x seq x seq) indicating edge type'
