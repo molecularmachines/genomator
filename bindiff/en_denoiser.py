@@ -23,6 +23,7 @@ class EnDenoiser(pl.LightningModule):
                  schedule='linear',
                  lr=1e-3):
         super().__init__()
+        print('timesteps: ', timesteps)
 
         torch.set_default_dtype(torch.float64)
         self.save_hyperparameters()
@@ -74,8 +75,8 @@ class EnDenoiser(pl.LightningModule):
             self.sqrt_one_minus_alphas_cumprod, t, x_start.shape
         ).to(x_start)
 
-        noised_x = sqrt_alphas_cumprod_t * x_start + sqrt_one_minus_alphas_cumprod_t * noise
-        return noised_x, noise
+        noised_x = sqrt_alphas_cumprod_t * x_start +  sqrt_one_minus_alphas_cumprod_t* noise
+        return noised_x, sqrt_one_minus_alphas_cumprod_t * noise
 
     @torch.no_grad()
     def p_sample(self, coords, seqs, masks, t, t_index):
@@ -140,13 +141,15 @@ class EnDenoiser(pl.LightningModule):
 
         # forward diffusion
         noised_coords, noise = self.q_sample(coords, ts)
+        noised_coords = noised_coords * masks.type(torch.float64)[..., None]
         ts = ts.type(torch.float64)
 
         # predict noisy input with transformer
         feats, prediction = self.transformer(seq, noised_coords, ts, mask=masks)
+        error_correction = (prediction - noised_coords)
 
         # loss between original and prediction
-        loss = F.mse_loss(prediction[masks], coords[masks])
+        loss = F.mse_loss(error_correction[masks], noise[masks])
 
         return feats, prediction, loss
 
@@ -184,8 +187,8 @@ class EnDenoiser(pl.LightningModule):
         parser.add_argument('--lr', type=float, default=0.0001)
         parser.add_argument('--beta_small', type=float, default=0.02)
         parser.add_argument('--beta_large', type=float, default=0.2)
-        parser.add_argument('--dim', type=int, default=32)
+        parser.add_argument('--dim', type=int, default=256)
         parser.add_argument('--dim_head', type=int, default=64)
-        parser.add_argument('--depth', type=int, default=4)
+        parser.add_argument('--depth', type=int, default=10)
         parser.add_argument('--timesteps', type=int, default=100)
         return parser

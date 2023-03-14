@@ -4,8 +4,8 @@ from en_denoiser import EnDenoiser
 from collate import prepare_dataloaders
 from preprocess import trim_dataset, standardize_dataset
 
-CHECKPOINT_DIR = "lightning_logs/checkpoints"
-CHECKPOINT_NAME = "ex2_epoch80"
+CHECKPOINT_DIR = "lightning_logs/version_2/checkpoints"
+CHECKPOINT_NAME = "epoch=93-step=376.ckpt"
 CHECKPOINT_FILE = os.path.join(CHECKPOINT_DIR, CHECKPOINT_NAME + ".ckpt")
 
 

@@ -175,7 +175,7 @@ class EquivariantAttention(nn.Module):
         self,
         *,
         dim,
-        time_emb_dim = 32,
+        time_emb_dim = 128,
         dim_head = 64,
         heads = 4,
         edge_dim = 0,
