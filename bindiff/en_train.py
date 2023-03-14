@@ -50,7 +50,13 @@ def cli_main():
     # ------------
     # model
     # ------------
-    model = EnDenoiser()
+    model = EnDenoiser(dim=args.dim,
+                       dim_head=args.dim_head,
+                       beta_small=args.beta_small,
+                       beta_large=args.beta_large,
+                       lr=args.lr,
+                       depth=args.depth,
+                       timesteps=args.timesteps)
 
     # ------------
     # training

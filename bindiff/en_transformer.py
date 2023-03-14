@@ -357,8 +357,6 @@ class EquivariantAttention(nn.Module):
         return out, coors_out
 
 
-# transformer
-
 class Block(nn.Module):
     def __init__(self, attn, ff):
         super().__init__()
