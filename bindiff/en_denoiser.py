@@ -6,6 +6,7 @@ import pytorch_lightning as pl
 from einops import rearrange, repeat
 from modules import EnTransformer
 from tqdm import tqdm
+import beta_schedule
 
 
 class EnDenoiser(pl.LightningModule):
@@ -26,6 +27,7 @@ class EnDenoiser(pl.LightningModule):
 
         torch.set_default_dtype(torch.float64)
         self.save_hyperparameters()
+
         self.transformer = EnTransformer(
             num_tokens=23,
             dim=dim,
@@ -42,23 +44,22 @@ class EnDenoiser(pl.LightningModule):
         self.timesteps = timesteps
 
         # precompute all betas
-        self.betas = self.linear_beta_schedule()
+        if schedule == 'linear':
+            self.betas = beta_schedule.linear_beta_schedule(timesteps, beta_small, beta_large)
+        elif schedule == 'cosine':
+            self.betas = beta_schedule.cosine_beta_schedule(timesteps)
+        elif schedule == 'quadratic':
+            self.betas = beta_schedule.quadratic_beta_schedule(timesteps, beta_small, beta_large)
+        else:
+            err = f"Schedule should be one of: [linear, cosine, quadratic]. receieved: {schedule}"
+            raise AttributeError(err)
 
         # precompute all alphas
-        self.alphas = 1. - self.betas
-        self.alphas_cumprod = torch.cumprod(self.alphas, axis=0)
-        self.alphas_cumprod_prev = F.pad(self.alphas_cumprod[:-1], (1, 0), value=1.0)
-        self.sqrt_recip_alphas = torch.sqrt(1.0 / self.alphas)
-
-        # calculations for diffusion q(x_t | x_{t-1}) and others
-        self.sqrt_alphas_cumprod = torch.sqrt(self.alphas_cumprod)
-        self.sqrt_one_minus_alphas_cumprod = torch.sqrt(1. - self.alphas_cumprod)
-
-        # calculations for posterior q(x_{t-1} | x_t, x_0)
-        self.posterior_variance = self.betas * (1. - self.alphas_cumprod_prev) / (1. - self.alphas_cumprod)
-
-    def linear_beta_schedule(self):
-        return torch.linspace(self.b1, self.b2, self.timesteps)
+        self.alphas,
+        self.alphas_cumprod,
+        self.sqrt_alphas_cumprod,
+        self.sqrt_one_minus_alphas_cumprod,
+        self.posterior_variance = beta_schedule.compute_alphas(self.betas)
 
     def extract(self, a, t, x_shape):
         batch_size = t.shape[0]
