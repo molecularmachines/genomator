@@ -66,16 +66,22 @@ class EnDenoiser(pl.LightningModule):
         return out.reshape(batch_size, *((1,) * (len(x_shape) - 1))).to(t.device)
 
     def q_sample(self, x_start, t, noise=None):
+        # generate random noise
         if noise is None:
             noise = torch.randn_like(x_start).to(x_start)
 
+        # calculate alpha values for rescaling
         sqrt_alphas_cumprod_t = self.extract(self.sqrt_alphas_cumprod, t, x_start.shape).to(x_start)
         sqrt_one_minus_alphas_cumprod_t = self.extract(
             self.sqrt_one_minus_alphas_cumprod, t, x_start.shape
         ).to(x_start)
 
-        noised_x = sqrt_alphas_cumprod_t * x_start + sqrt_one_minus_alphas_cumprod_t * noise
-        return noised_x, noise
+        # rescale noise and input
+        scaled_noise = sqrt_one_minus_alphas_cumprod_t * noise
+        scaled_input = sqrt_alphas_cumprod_t * x_start
+        noised_x = scaled_input + scaled_noise
+
+        return noised_x, scaled_noise
 
     @torch.no_grad()
     def p_sample(self, coords, seqs, masks, t, t_index):
@@ -108,7 +114,7 @@ class EnDenoiser(pl.LightningModule):
 
         # iterate over timesteps with p_sample
         desc = 'sampling loop time step'
-        for i in tqdm(range(timesteps, 0, -1), desc=desc, total=timesteps):
+        for i in tqdm(range(timesteps, -1, -1), desc=desc, total=timesteps):
             ts = torch.full((b,), i)  # all samples same t
             res = self.p_sample(res, seqs, masks, ts, i)
             results.append(res)
@@ -140,13 +146,15 @@ class EnDenoiser(pl.LightningModule):
 
         # forward diffusion
         noised_coords, noise = self.q_sample(coords, ts)
+        noised_coords = noised_coords * masks.type(torch.float64)[..., None]
         ts = ts.type(torch.float64)
 
         # predict noisy input with transformer
         feats, prediction = self.transformer(seq, noised_coords, ts, mask=masks)
+        error_correction = prediction - noised_coords
 
-        # loss between original and prediction
-        loss = F.mse_loss(prediction[masks], coords[masks])
+        # loss between original noise and prediction
+        loss = F.mse_loss(error_correction[masks], noise[masks])
 
         return feats, prediction, loss
 
@@ -184,8 +192,8 @@ class EnDenoiser(pl.LightningModule):
         parser.add_argument('--lr', type=float, default=0.0001)
         parser.add_argument('--beta_small', type=float, default=0.02)
         parser.add_argument('--beta_large', type=float, default=0.2)
-        parser.add_argument('--dim', type=int, default=32)
+        parser.add_argument('--dim', type=int, default=256)
         parser.add_argument('--dim_head', type=int, default=64)
-        parser.add_argument('--depth', type=int, default=4)
+        parser.add_argument('--depth', type=int, default=8)
         parser.add_argument('--timesteps', type=int, default=100)
         return parser
