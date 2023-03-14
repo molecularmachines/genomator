@@ -59,7 +59,7 @@ class EnDenoiser(pl.LightningModule):
         self.alphas = a
         self.alphas_cumprod = ac
         self.sqrt_alphas_cumprod = sqac
-        self.sqrt_alphas_cumprod = sq1ac
+        self.sqrt_one_minus_alphas_cumprod = sq1ac
         self.posterior_variance = pv
 
     def extract(self, a, t, x_shape):
