@@ -107,7 +107,7 @@ class EnDenoiser(pl.LightningModule):
         # extract alhpas
         betas_t = self.extract(self.betas, t, s)
         sqrt_one_minus_alphas_cumprod_t = self.extract(
-            self.sqrt_one_minus_alphas_cumprod, t, coords.shape
+            self.sqrt_one_minus_alphas_cumprod, t, s
         )
         sqrt_recip_alphas_t = self.extract(self.sqrt_recip_alphas, t, s)
 
@@ -176,10 +176,9 @@ class EnDenoiser(pl.LightningModule):
 
         # predict noisy input with transformer
         feats, prediction = self.transformer(seq, noised_coords, ts, mask=mask)
-        error_correction = prediction - noised_coords
 
         # loss between original noise and prediction
-        loss = F.mse_loss(error_correction[mask], noise[mask])
+        loss = F.mse_loss(prediction[mask], noise[mask])
 
         return feats, prediction, loss
 
