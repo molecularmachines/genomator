@@ -47,7 +47,15 @@ def compute_alphas(betas: torch.Tensor) -> Dict[str, torch.Tensor]:
     posterior_variance = betas * (1.0 - alphas_cumprod_prev) / (1.0 - alphas_cumprod)
     sqrt_alphas_cumprod = torch.sqrt(alphas_cumprod)
     sqrt_one_minus_alphas_cumprod = torch.sqrt(1.0 - alphas_cumprod)
-    return alphas, alphas_cumprod, sqrt_alphas_cumprod, sqrt_one_minus_alphas_cumprod, posterior_variance
+    sqrt_recip_alphas = torch.sqrt(1.0 / alphas)
+    return (
+        alphas,
+        alphas_cumprod,
+        sqrt_alphas_cumprod,
+        sqrt_one_minus_alphas_cumprod,
+        posterior_variance,
+        sqrt_recip_alphas
+    )
 
 
 def get_variance_schedule(keyword: SCHEDULES, timesteps: int, **kwargs) -> torch.Tensor:

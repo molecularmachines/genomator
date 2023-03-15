@@ -45,27 +45,37 @@ class EnDenoiser(pl.LightningModule):
 
         # precompute all betas
         if schedule == 'linear':
-            self.betas = beta_schedule.linear_beta_schedule(timesteps, beta_small, beta_large)
+            self.betas = beta_schedule.linear_beta_schedule(
+                timesteps, beta_small, beta_large
+            )
+
         elif schedule == 'cosine':
             self.betas = beta_schedule.cosine_beta_schedule(timesteps)
+
         elif schedule == 'quadratic':
-            self.betas = beta_schedule.quadratic_beta_schedule(timesteps, beta_small, beta_large)
+            self.betas = beta_schedule.quadratic_beta_schedule(
+                timesteps, beta_small, beta_large
+            )
+
         else:
-            err = f"Schedule should be one of: [linear, cosine, quadratic]. receieved: {schedule}"
+            allowed = beta_schedule.SCHEDULES
+            err = f"Schedule must be one of: {allowed}. receieved: {schedule}"
             raise AttributeError(err)
 
         # precompute all alphas
-        a, ac, sqac, sq1ac, pv = beta_schedule.compute_alphas(self.betas)
+        a, ac, sqac, sq1ac, pv, sra = beta_schedule.compute_alphas(self.betas)
         self.alphas = a
         self.alphas_cumprod = ac
         self.sqrt_alphas_cumprod = sqac
         self.sqrt_one_minus_alphas_cumprod = sq1ac
         self.posterior_variance = pv
+        self.sqrt_recip_alphas = sra
 
     def extract(self, a, t, x_shape):
         batch_size = t.shape[0]
         out = a.gather(-1, t.cpu())
-        return out.reshape(batch_size, *((1,) * (len(x_shape) - 1))).to(t.device)
+        out = out.reshape(batch_size, *((1,) * (len(x_shape) - 1)))
+        return out.to(t.device)
 
     def q_sample(self, x_start, t, noise=None):
         # generate random noise
@@ -73,9 +83,14 @@ class EnDenoiser(pl.LightningModule):
             noise = torch.randn_like(x_start).to(x_start)
 
         # calculate alpha values for rescaling
-        sqrt_alphas_cumprod_t = self.extract(self.sqrt_alphas_cumprod, t, x_start.shape).to(x_start)
+        s = x_start.shape
+
+        sqrt_alphas_cumprod_t = self.extract(
+            self.sqrt_alphas_cumprod, t, s
+        ).to(x_start)
+
         sqrt_one_minus_alphas_cumprod_t = self.extract(
-            self.sqrt_one_minus_alphas_cumprod, t, x_start.shape
+            self.sqrt_one_minus_alphas_cumprod, t, s
         ).to(x_start)
 
         # rescale noise and input
@@ -87,12 +102,19 @@ class EnDenoiser(pl.LightningModule):
 
     @torch.no_grad()
     def p_sample(self, coords, seqs, masks, t, t_index):
-        betas_t = self.extract(self.betas, t, coords.shape)
+        s = coords.shape
+
+        # extract alhpas
+        betas_t = self.extract(self.betas, t, s)
         sqrt_one_minus_alphas_cumprod_t = self.extract(
             self.sqrt_one_minus_alphas_cumprod, t, coords.shape
         )
-        sqrt_recip_alphas_t = self.extract(self.sqrt_recip_alphas, t, coords.shape)
+        sqrt_recip_alphas_t = self.extract(self.sqrt_recip_alphas, t, s)
+
+        # inference from the model
         _, prediction = self.transformer(seqs, coords, t, mask=masks)
+
+        # calculate mean based on the model prediction
         model_mean = sqrt_recip_alphas_t * (
             coords - betas_t * prediction / sqrt_one_minus_alphas_cumprod_t
         )
@@ -101,7 +123,7 @@ class EnDenoiser(pl.LightningModule):
             return model_mean
 
         else:
-            posterior_variance_t = self.extract(self.posterior_variance, t, coords.shape)
+            posterior_variance_t = self.extract(self.posterior_variance, t, s)
             noise = torch.randn_like(coords)
             return model_mean + torch.sqrt(posterior_variance_t) * noise
 
@@ -141,47 +163,41 @@ class EnDenoiser(pl.LightningModule):
         return coords, seq, masks
 
     def step(self, x):
-        coords, seq, masks = self.prepare_inputs(x)
+        coords, seq, mask = self.prepare_inputs(x)
 
         # noise with random amount
-        ts = torch.randint(0, self.timesteps, [coords.shape[0]]).to(coords).type(torch.int64)
+        s = coords.shape[0]
+        ts = torch.randint(0, self.timesteps, [s]).to(coords).type(torch.int64)
 
         # forward diffusion
         noised_coords, noise = self.q_sample(coords, ts)
-        noised_coords = noised_coords * masks.type(torch.float64)[..., None]
+        noised_coords = noised_coords * mask.type(torch.float64)[..., None]
         ts = ts.type(torch.float64)
 
         # predict noisy input with transformer
-        feats, prediction = self.transformer(seq, noised_coords, ts, mask=masks)
+        feats, prediction = self.transformer(seq, noised_coords, ts, mask=mask)
         error_correction = prediction - noised_coords
 
         # loss between original noise and prediction
-        loss = F.mse_loss(error_correction[masks], noise[masks])
+        loss = F.mse_loss(error_correction[mask], noise[mask])
 
         return feats, prediction, loss
 
     def training_step(self, batch, batch_idx):
-        # run model on inputs
         batch_size = batch.atom_coord.shape[0]
         feats, denoised, loss = self.step(batch)
-
-        # compute loss
         self.log("train_loss", loss, batch_size=batch_size)
         return loss
 
     def validation_step(self, batch, batch_idx):
-        # run model on inputs
         batch_size = batch.atom_coord.shape[0]
         feats, denoised, loss = self.step(batch)
-
         self.log("val_loss", loss, batch_size=batch_size)
         return loss
 
     def test_step(self, batch, batch_idx):
-        # run model on inputs
         feats, denoised, loss = self.step(batch)
         batch_size = batch.atom_coord.shape[0]
-
         self.log("test_loss", loss, batch_size=batch_size)
         return loss
 
