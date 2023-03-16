@@ -6,3 +6,4 @@ data
 sidechainnet_data/
 lightning_logs/
 .aim/
+checkpoints/

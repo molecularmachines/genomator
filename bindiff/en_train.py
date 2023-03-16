@@ -101,6 +101,8 @@ def cli_main():
     # training
     # ------------
     devices = [int(x) for x in args.device.split(',')]
+    if device == 'cpu':
+        devices = devices[0]
     trainer = pl.Trainer.from_argparse_args(
         args,
         default_root_dir=checkpoint_path,
