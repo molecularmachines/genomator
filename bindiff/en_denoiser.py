@@ -22,7 +22,7 @@ class EnDenoiser(pl.LightningModule):
                  beta_large=0.02,
                  timesteps=100,
                  schedule='linear',
-                 lr=1e-3):
+                 lr=1e-4):
         super().__init__()
 
         torch.set_default_dtype(torch.float64)
@@ -115,6 +115,7 @@ class EnDenoiser(pl.LightningModule):
         # inference from the model
         _, prediction = self.transformer(seqs, coords, t, mask=masks)
         pred_noise = prediction - coords
+        pred_noise = pred_noise[masks]
 
         # calculate mean based on the model prediction
         model_mean = sqrt_recip_alphas_t * (
