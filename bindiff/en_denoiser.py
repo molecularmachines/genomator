@@ -72,6 +72,7 @@ class EnDenoiser(pl.LightningModule):
         self.sqrt_recip_alphas = sra
 
     def extract(self, a, t, x_shape):
+        t = t.type(torch.int64)
         batch_size = t.shape[0]
         out = a.gather(-1, t.cpu())
         out = out.reshape(batch_size, *((1,) * (len(x_shape) - 1)))
@@ -113,10 +114,11 @@ class EnDenoiser(pl.LightningModule):
 
         # inference from the model
         _, prediction = self.transformer(seqs, coords, t, mask=masks)
+        pred_noise = prediction - coords
 
         # calculate mean based on the model prediction
         model_mean = sqrt_recip_alphas_t * (
-            coords - betas_t * prediction / sqrt_one_minus_alphas_cumprod_t
+            coords - betas_t * pred_noise / sqrt_one_minus_alphas_cumprod_t
         )
 
         if t_index == 0:
@@ -158,6 +160,7 @@ class EnDenoiser(pl.LightningModule):
         coords = rearrange(coords, 'b l s c -> b (l s) c')
         masks = rearrange(masks, 'b l s -> b (l s)')
 
+        # assign sequence token to each of the backbone atoms
         seq = repeat(seqs, 'b n -> b (n c)', c=4)
 
         return coords, seq, masks
@@ -167,7 +170,7 @@ class EnDenoiser(pl.LightningModule):
 
         # noise with random amount
         s = coords.shape[0]
-        ts = torch.randint(0, self.timesteps, [s]).to(coords).type(torch.int64)
+        ts = torch.randint(0, self.timesteps, [s]).to(coords)
 
         # forward diffusion
         noised_coords, noise = self.q_sample(coords, ts)
@@ -176,9 +179,10 @@ class EnDenoiser(pl.LightningModule):
 
         # predict noisy input with transformer
         feats, prediction = self.transformer(seq, noised_coords, ts, mask=mask)
+        predicted_noise = prediction - noised_coords
 
         # loss between original noise and prediction
-        loss = F.mse_loss(prediction[mask], noise[mask])
+        loss = F.mse_loss(predicted_noise[mask], noise[mask])
 
         return feats, prediction, loss
 
