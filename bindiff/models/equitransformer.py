@@ -3,7 +3,7 @@ from torch import nn, einsum
 from torch.utils.checkpoint import checkpoint_sequential
 
 from einops import rearrange, repeat
-from modules import (
+from models.modules import (
     DynamicPositionBias,
     SinusoidalPositionEmbeddings,
     LayerNorm,
@@ -11,7 +11,7 @@ from modules import (
     Residual,
     GEGLU
 )
-from helpers import (
+from models.helpers import (
     exists,
     max_neg_value,
     default,

@@ -1,5 +1,5 @@
 import torch
-import beta_schedule
+import sampling.beta_schedule as beta_schedule
 from tqdm import tqdm
 
 

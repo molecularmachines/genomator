@@ -4,8 +4,8 @@ from argparse import ArgumentParser
 import torch.nn.functional as F
 import pytorch_lightning as pl
 from einops import rearrange, repeat
-from equitransformer import EnTransformer
-from diffusion import Diffusion
+from models.equitransformer import EnTransformer
+from sampling.diffusion import Diffusion
 
 
 class EnDenoiser(pl.LightningModule):

@@ -4,7 +4,7 @@ from argparse import ArgumentParser
 import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 from preprocess import StandardizeTransform
-from en_denoiser import EnDenoiser
+from models.en_denoiser import EnDenoiser
 from moleculib.protein.dataset import ProteinDataset
 from moleculib.protein.batch import PadBatch
 from torch.utils.data import DataLoader
