@@ -70,6 +70,7 @@ def cli_main():
         beta_large=args.beta_large,
         lr=args.lr,
         depth=args.depth,
+        schedule=args.schedule,
         timesteps=args.timesteps
     )
 

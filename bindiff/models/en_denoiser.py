@@ -115,4 +115,5 @@ class EnDenoiser(pl.LightningModule):
         parser.add_argument('--dim_head', type=int, default=64)
         parser.add_argument('--depth', type=int, default=8)
         parser.add_argument('--timesteps', type=int, default=100)
+        parser.add_argument('--schedule', type=str, default='linear')
         return parser
