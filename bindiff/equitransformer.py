@@ -515,4 +515,3 @@ class EnTransformer(nn.Module):
             return feats, coors, coor_changes
 
         return feats, coors
-
