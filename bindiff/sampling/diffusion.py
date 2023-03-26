@@ -87,8 +87,7 @@ class Diffusion:
 
         # inference from the model
         _, prediction = model(seqs, coords, t, mask=masks)
-        pred_noise = prediction - coords
-        pred_noise = pred_noise[masks]
+        pred_noise = prediction[masks]
 
         # calculate mean based on the model prediction
         model_mean = sqrt_recip_alphas_t * (
@@ -114,7 +113,11 @@ class Diffusion:
 
         # iterate over timesteps with p_sample
         desc = 'sampling loop time step'
-        for i in tqdm(range(timesteps, -1, -1), desc=desc, total=timesteps):
+        for i in tqdm(
+            reversed(range(0, timesteps)),
+            desc=desc,
+            total=timesteps
+        ):
             ts = torch.full((b,), i)  # all samples same t
             res = self.p_sample(model, res, seqs, masks, ts, i)
             results.append(res)
