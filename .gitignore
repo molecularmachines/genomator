@@ -1,9 +1,9 @@
 __pycache__
 .ipynb_checkpoints/
 venv
-data
 .DS_STORE
 sidechainnet_data/
 lightning_logs/
 .aim/
 checkpoints/
+_pdbs/
