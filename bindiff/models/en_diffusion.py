@@ -166,7 +166,7 @@ class SinusoidalPosEmb(pl.LightningModule):
         return emb
 
 
-class PredefinedNoiseSchedule(torch.nn.Module):
+class PredefinedNoiseSchedule(pl.LightningModule):
     """
     Predefined noise schedule. Essentially creates a lookup array for predefined (non-learned) noise schedules.
     """
@@ -205,7 +205,7 @@ class PredefinedNoiseSchedule(torch.nn.Module):
         return self.gamma[t_int]
 
 
-class GammaNetwork(torch.nn.Module):
+class GammaNetwork(pl.LightningModule):
     """The gamma network models a monotonic increasing function. Construction as in the VDM paper."""
 
     def __init__(self):
@@ -250,7 +250,7 @@ def cdf_standard_gaussian(x):
     return 0.5 * (1. + torch.erf(x / math.sqrt(2)))
 
 
-class EnVariationalDiffusion(torch.nn.Module):
+class EnVariationalDiffusion(pl.LightningModule):
     """
     The E(n) Diffusion Module.
     """

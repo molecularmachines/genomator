@@ -75,9 +75,9 @@ def center_gravity_zero_gaussian_log_likelihood(x):
     return log_px
 
 
-def sample_center_gravity_zero_gaussian(size, device):
+def sample_center_gravity_zero_gaussian(size):
     assert len(size) == 3
-    x = torch.randn(size, device=device)
+    x = torch.randn(size)
 
     # This projection only works because Gaussian is rotation invariant around
     # zero and samples are independent!
