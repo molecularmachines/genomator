@@ -256,8 +256,8 @@ def unsorted_segment_sum(data, segment_ids, num_segments, normalization_factor, 
         Normalization: 'sum' or 'mean'.
     """
     result_shape = (num_segments, data.size(1))
-    result = data.new_full(result_shape, 0)  # Init empty result tensor.
-    segment_ids = segment_ids.unsqueeze(-1).expand(-1, data.size(1))
+    result = data.new_full(result_shape, 0).to(data)  # Init empty result tensor.
+    segment_ids = segment_ids.unsqueeze(-1).expand(-1, data.size(1)).to(data).type(torch.int64)
     result.scatter_add_(0, segment_ids, data)
     if aggregation_method == 'sum':
         result = result / normalization_factor

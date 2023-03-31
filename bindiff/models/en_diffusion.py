@@ -150,7 +150,7 @@ class PositiveLinear(pl.LightningModule):
         return F.linear(input, positive_weight, self.bias)
 
 
-class SinusoidalPosEmb(torch.nn.Module):
+class SinusoidalPosEmb(pl.LightningModule):
     def __init__(self, dim):
         super().__init__()
         self.dim = dim
@@ -158,10 +158,9 @@ class SinusoidalPosEmb(torch.nn.Module):
     def forward(self, x):
         x = x.squeeze() * 1000
         assert len(x.shape) == 1
-        device = x.device
         half_dim = self.dim // 2
         emb = math.log(10000) / (half_dim - 1)
-        emb = torch.exp(torch.arange(half_dim, device=device) * -emb)
+        emb = torch.exp(torch.arange(half_dim) * -emb)
         emb = x[:, None] * emb[None, :]
         emb = torch.cat((emb.sin(), emb.cos()), dim=-1)
         return emb
@@ -412,7 +411,7 @@ class EnVariationalDiffusion(torch.nn.Module):
         compute it so that you see it when you've made a mistake in your noise schedule.
         """
         # Compute the last alpha value, alpha_T.
-        ones = torch.ones((xh.size(0), 1), device=xh.device)
+        ones = torch.ones((xh.size(0), 1))
         gamma_T = self.gamma(ones)
         alpha_T = self.alpha(gamma_T, xh)
 
@@ -467,7 +466,7 @@ class EnVariationalDiffusion(torch.nn.Module):
         assert n_nodes.size() == (batch_size,)
         degrees_of_freedom_x = (n_nodes - 1) * self.n_dims
 
-        zeros = torch.zeros((x.size(0), 1), device=x.device)
+        zeros = torch.zeros((x.size(0), 1))
         gamma_0 = self.gamma(zeros)
 
         # Recall that sigma_x = sqrt(sigma_0^2 / alpha_0^2) = SNR(-0.5 gamma_0).
@@ -477,7 +476,7 @@ class EnVariationalDiffusion(torch.nn.Module):
 
     def sample_p_xh_given_z0(self, z0, node_mask, edge_mask, context, fix_noise=False):
         """Samples x ~ p(x|z0)."""
-        zeros = torch.zeros(size=(z0.size(0), 1), device=z0.device)
+        zeros = torch.zeros(size=(z0.size(0), 1))
         gamma_0 = self.gamma(zeros)
         # Computes sqrt(sigma_0^2 / alpha_0^2)
         sigma_x = self.SNR(-0.5 * gamma_0).unsqueeze(1)
@@ -489,7 +488,7 @@ class EnVariationalDiffusion(torch.nn.Module):
 
         x = xh[:, :, :self.n_dims]
 
-        h_int = z0[:, :, -1:] if self.include_charges else torch.zeros(0).to(z0.device)
+        h_int = z0[:, :, -1:] if self.include_charges else torch.zeros(0).to(z0)
         x, h_cat, h_int = self.unnormalize(x, z0[:, :, self.n_dims:-1], h_int, node_mask)
 
         h_cat = F.one_hot(torch.argmax(h_cat, dim=2), self.num_classes) * node_mask
@@ -507,7 +506,7 @@ class EnVariationalDiffusion(torch.nn.Module):
             self, x, h, z_t, gamma_0, eps, net_out, node_mask, epsilon=1e-10):
         # Discrete properties are predicted directly from z_t.
         z_h_cat = z_t[:, :, self.n_dims:-1] if self.include_charges else z_t[:, :, self.n_dims:]
-        z_h_int = z_t[:, :, -1:] if self.include_charges else torch.zeros(0).to(z_t.device)
+        z_h_int = z_t[:, :, -1:] if self.include_charges else torch.zeros(0).to(z_t)
 
         # Take only part over x.
         eps_x = eps[:, :, :self.n_dims]
@@ -580,7 +579,7 @@ class EnVariationalDiffusion(torch.nn.Module):
 
         # Sample a timestep t.
         t_int = torch.randint(
-            lowest_t, self.T + 1, size=(x.size(0), 1), device=x.device).float()
+            lowest_t, self.T + 1, size=(x.size(0), 1)).float()
         s_int = t_int - 1
         t_is_zero = (t_int == 0).float()  # Important to compute log p(x | z0).
 
@@ -752,10 +751,10 @@ class EnVariationalDiffusion(torch.nn.Module):
         Samples mean-centered normal noise for z_x, and standard normal noise for z_h.
         """
         z_x = diffusion_utils.sample_center_gravity_zero_gaussian_with_mask(
-            size=(n_samples, n_nodes, self.n_dims), device=node_mask.device,
+            size=(n_samples, n_nodes, self.n_dims),
             node_mask=node_mask)
         z_h = diffusion_utils.sample_gaussian_with_mask(
-            size=(n_samples, n_nodes, self.in_node_nf), device=node_mask.device,
+            size=(n_samples, n_nodes, self.in_node_nf),
             node_mask=node_mask)
         z = torch.cat([z_x, z_h], dim=2)
         return z
@@ -775,7 +774,7 @@ class EnVariationalDiffusion(torch.nn.Module):
 
         # Iteratively sample p(z_s | z_t) for t = 1, ..., T, with s = t - 1.
         for s in reversed(range(0, self.T)):
-            s_array = torch.full((n_samples, 1), fill_value=s, device=z.device)
+            s_array = torch.full((n_samples, 1), fill_value=s)
             t_array = s_array + 1
             s_array = s_array / self.T
             t_array = t_array / self.T
@@ -808,11 +807,11 @@ class EnVariationalDiffusion(torch.nn.Module):
             keep_frames = self.T
         else:
             assert keep_frames <= self.T
-        chain = torch.zeros((keep_frames,) + z.size(), device=z.device)
+        chain = torch.zeros((keep_frames,) + z.size())
 
         # Iteratively sample p(z_s | z_t) for t = 1, ..., T, with s = t - 1.
         for s in reversed(range(0, self.T)):
-            s_array = torch.full((n_samples, 1), fill_value=s, device=z.device)
+            s_array = torch.full((n_samples, 1), fill_value=s)
             t_array = s_array + 1
             s_array = s_array / self.T
             t_array = t_array / self.T
@@ -842,8 +841,8 @@ class EnVariationalDiffusion(torch.nn.Module):
         """
         Some info logging of the model.
         """
-        gamma_0 = self.gamma(torch.zeros(1, device=self.buffer.device))
-        gamma_1 = self.gamma(torch.ones(1, device=self.buffer.device))
+        gamma_0 = self.gamma(torch.zeros(1))
+        gamma_1 = self.gamma(torch.ones(1))
 
         log_SNR_max = -gamma_0
         log_SNR_min = -gamma_1
