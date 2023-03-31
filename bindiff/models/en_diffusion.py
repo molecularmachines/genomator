@@ -145,9 +145,10 @@ class PositiveLinear(nn.Module):
             bound = 1 / math.sqrt(fan_in) if fan_in > 0 else 0
             torch.nn.init.uniform_(self.bias, -bound, bound)
 
-    def forward(self, input):
+    def forward(self, x):
         positive_weight = softplus(self.weight)
-        return F.linear(input, positive_weight, self.bias)
+        x = x.device(positive_weight)
+        return F.linear(x, positive_weight, self.bias)
 
 
 class SinusoidalPosEmb(nn.Module):
@@ -581,7 +582,7 @@ class EnVariationalDiffusion(nn.Module):
         t_int = torch.randint(
             lowest_t, self.T + 1, size=(x.size(0), 1)).float()
         s_int = t_int - 1
-        t_is_zero = (t_int == 0).float()  # Important to compute log p(x | z0).
+        t_is_zero = (t_int == 0).float().to(x.device)  # Important to compute log p(x | z0).
 
         # Normalize t to [0, 1]. Note that the negative
         # step of s will never be used, since then p(x | z0) is computed.

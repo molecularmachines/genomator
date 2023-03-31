@@ -66,6 +66,7 @@ class EGNN_dynamics_QM9(nn.Module):
                 # t is different over the batch dimension.
                 h_time = t.view(bs, 1).repeat(1, n_nodes)
                 h_time = h_time.view(bs * n_nodes, 1)
+            h_time = h_time.to(h.device)
             h = torch.cat([h, h_time], dim=1)
 
         if context is not None:
