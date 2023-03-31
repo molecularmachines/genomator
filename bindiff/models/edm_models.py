@@ -1,13 +1,13 @@
+import pytorch_lightning as pl
 import torch
-import torch.nn as nn
 from models.egnn_new import EGNN, GNN
 from sampling.diffusion_utils import remove_mean, remove_mean_with_mask
 import numpy as np
 
 
-class EGNN_dynamics_QM9(nn.Module):
+class EGNN_dynamics_QM9(pl.LightningModule):
     def __init__(self, in_node_nf, context_node_nf,
-                 n_dims, hidden_nf=64, device='cpu',
+                 n_dims, hidden_nf=64,
                  act_fn=torch.nn.SiLU(), n_layers=2, attention=False,
                  condition_time=True, tanh=False, mode='egnn_dynamics', norm_constant=0,
                  inv_sublayers=2, sin_embedding=False, normalization_factor=100, aggregation_method='sum'):
@@ -16,7 +16,7 @@ class EGNN_dynamics_QM9(nn.Module):
         if mode == 'egnn_dynamics':
             self.egnn = EGNN(
                 in_node_nf=in_node_nf + context_node_nf, in_edge_nf=1,
-                hidden_nf=hidden_nf, device=device, act_fn=act_fn,
+                hidden_nf=hidden_nf, act_fn=act_fn,
                 n_layers=n_layers, attention=attention, tanh=tanh, norm_constant=norm_constant,
                 inv_sublayers=inv_sublayers, sin_embedding=sin_embedding,
                 normalization_factor=normalization_factor,
@@ -25,12 +25,11 @@ class EGNN_dynamics_QM9(nn.Module):
         elif mode == 'gnn_dynamics':
             self.gnn = GNN(
                 in_node_nf=in_node_nf + context_node_nf + 3, in_edge_nf=0,
-                hidden_nf=hidden_nf, out_node_nf=3 + in_node_nf, device=device,
+                hidden_nf=hidden_nf, out_node_nf=3 + in_node_nf,
                 act_fn=act_fn, n_layers=n_layers, attention=attention,
                 normalization_factor=normalization_factor, aggregation_method=aggregation_method)
 
         self.context_node_nf = context_node_nf
-        self.device = device
         self.n_dims = n_dims
         self._edges_dict = {}
         self.condition_time = condition_time
@@ -49,14 +48,13 @@ class EGNN_dynamics_QM9(nn.Module):
     def _forward(self, t, xh, node_mask, edge_mask, context):
         bs, n_nodes, dims = xh.shape
         h_dims = dims - self.n_dims
-        edges = self.get_adj_matrix(n_nodes, bs, self.device)
-        edges = [x.to(self.device) for x in edges]
+        edges = self.get_adj_matrix(n_nodes, bs)
         node_mask = node_mask.view(bs*n_nodes, 1)
         edge_mask = edge_mask.view(bs*n_nodes*n_nodes, 1)
         xh = xh.view(bs*n_nodes, -1).clone() * node_mask
         x = xh[:, 0:self.n_dims].clone()
         if h_dims == 0:
-            h = torch.ones(bs*n_nodes, 1).to(self.device)
+            h = torch.ones(bs*n_nodes, 1)
         else:
             h = xh[:, self.n_dims:].clone()
 
@@ -112,7 +110,7 @@ class EGNN_dynamics_QM9(nn.Module):
             h_final = h_final.view(bs, n_nodes, -1)
             return torch.cat([vel, h_final], dim=2)
 
-    def get_adj_matrix(self, n_nodes, batch_size, device):
+    def get_adj_matrix(self, n_nodes, batch_size):
         if n_nodes in self._edges_dict:
             edges_dic_b = self._edges_dict[n_nodes]
             if batch_size in edges_dic_b:
@@ -125,10 +123,10 @@ class EGNN_dynamics_QM9(nn.Module):
                         for j in range(n_nodes):
                             rows.append(i + batch_idx * n_nodes)
                             cols.append(j + batch_idx * n_nodes)
-                edges = [torch.LongTensor(rows).to(device),
-                         torch.LongTensor(cols).to(device)]
+                edges = [torch.LongTensor(rows),
+                         torch.LongTensor(cols)]
                 edges_dic_b[batch_size] = edges
                 return edges
         else:
             self._edges_dict[n_nodes] = {}
-            return self.get_adj_matrix(n_nodes, batch_size, device)
+            return self.get_adj_matrix(n_nodes, batch_size)

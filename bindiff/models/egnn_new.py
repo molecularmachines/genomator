@@ -1,9 +1,10 @@
+import pytorch_lightning as pl
 from torch import nn
 import torch
 import math
 
 
-class GCL(nn.Module):
+class GCL(pl.LightningModule):
     def __init__(self, input_nf, output_nf, hidden_nf, normalization_factor, aggregation_method,
                  edges_in_d=0, nodes_att_dim=0, act_fn=nn.SiLU(), attention=False):
         super(GCL, self).__init__()
@@ -66,7 +67,7 @@ class GCL(nn.Module):
         return h, mij
 
 
-class EquivariantUpdate(nn.Module):
+class EquivariantUpdate(pl.LightningModule):
     def __init__(self, hidden_nf, normalization_factor, aggregation_method,
                  edges_in_d=1, act_fn=nn.SiLU(), tanh=False, coords_range=10.0):
         super(EquivariantUpdate, self).__init__()
@@ -106,13 +107,12 @@ class EquivariantUpdate(nn.Module):
         return coord
 
 
-class EquivariantBlock(nn.Module):
-    def __init__(self, hidden_nf, edge_feat_nf=2, device='cpu', act_fn=nn.SiLU(), n_layers=2, attention=True,
+class EquivariantBlock(pl.LightningModule):
+    def __init__(self, hidden_nf, edge_feat_nf=2, act_fn=nn.SiLU(), n_layers=2, attention=True,
                  norm_diff=True, tanh=False, coords_range=15, norm_constant=1, sin_embedding=None,
                  normalization_factor=100, aggregation_method='sum'):
         super(EquivariantBlock, self).__init__()
         self.hidden_nf = hidden_nf
-        self.device = device
         self.n_layers = n_layers
         self.coords_range_layer = float(coords_range)
         self.norm_diff = norm_diff
@@ -130,7 +130,6 @@ class EquivariantBlock(nn.Module):
                                                        coords_range=self.coords_range_layer,
                                                        normalization_factor=self.normalization_factor,
                                                        aggregation_method=self.aggregation_method))
-        self.to(self.device)
 
     def forward(self, h, x, edge_index, node_mask=None, edge_mask=None, edge_attr=None):
         # Edit Emiel: Remove velocity as input
@@ -148,15 +147,14 @@ class EquivariantBlock(nn.Module):
         return h, x
 
 
-class EGNN(nn.Module):
-    def __init__(self, in_node_nf, in_edge_nf, hidden_nf, device='cpu', act_fn=nn.SiLU(), n_layers=3, attention=False,
+class EGNN(pl.LightningModule):
+    def __init__(self, in_node_nf, in_edge_nf, hidden_nf, act_fn=nn.SiLU(), n_layers=3, attention=False,
                  norm_diff=True, out_node_nf=None, tanh=False, coords_range=15, norm_constant=1, inv_sublayers=2,
                  sin_embedding=False, normalization_factor=100, aggregation_method='sum'):
         super(EGNN, self).__init__()
         if out_node_nf is None:
             out_node_nf = in_node_nf
         self.hidden_nf = hidden_nf
-        self.device = device
         self.n_layers = n_layers
         self.coords_range_layer = float(coords_range/n_layers)
         self.norm_diff = norm_diff
@@ -173,14 +171,13 @@ class EGNN(nn.Module):
         self.embedding = nn.Linear(in_node_nf, self.hidden_nf)
         self.embedding_out = nn.Linear(self.hidden_nf, out_node_nf)
         for i in range(0, n_layers):
-            self.add_module("e_block_%d" % i, EquivariantBlock(hidden_nf, edge_feat_nf=edge_feat_nf, device=device,
+            self.add_module("e_block_%d" % i, EquivariantBlock(hidden_nf, edge_feat_nf=edge_feat_nf,
                                                                act_fn=act_fn, n_layers=inv_sublayers,
                                                                attention=attention, norm_diff=norm_diff, tanh=tanh,
                                                                coords_range=coords_range, norm_constant=norm_constant,
                                                                sin_embedding=self.sin_embedding,
                                                                normalization_factor=self.normalization_factor,
                                                                aggregation_method=self.aggregation_method))
-        self.to(self.device)
 
     def forward(self, h, x, edge_index, node_mask=None, edge_mask=None):
         # Edit Emiel: Remove velocity as input
@@ -198,15 +195,14 @@ class EGNN(nn.Module):
         return h, x
 
 
-class GNN(nn.Module):
-    def __init__(self, in_node_nf, in_edge_nf, hidden_nf, aggregation_method='sum', device='cpu',
+class GNN(pl.LightningModule):
+    def __init__(self, in_node_nf, in_edge_nf, hidden_nf, aggregation_method='sum',
                  act_fn=nn.SiLU(), n_layers=4, attention=False,
                  normalization_factor=1, out_node_nf=None):
         super(GNN, self).__init__()
         if out_node_nf is None:
             out_node_nf = in_node_nf
         self.hidden_nf = hidden_nf
-        self.device = device
         self.n_layers = n_layers
         ### Encoder
         self.embedding = nn.Linear(in_node_nf, self.hidden_nf)
@@ -218,7 +214,6 @@ class GNN(nn.Module):
                 aggregation_method=aggregation_method,
                 edges_in_d=in_edge_nf, act_fn=act_fn,
                 attention=attention))
-        self.to(self.device)
 
     def forward(self, h, edges, edge_attr=None, node_mask=None, edge_mask=None):
         # Edit Emiel: Remove velocity as input
@@ -233,7 +228,7 @@ class GNN(nn.Module):
         return h
 
 
-class SinusoidsEmbeddingNew(nn.Module):
+class SinusoidsEmbeddingNew(pl.LightningModule):
     def __init__(self, max_res=15., min_res=15. / 2000., div_factor=4):
         super().__init__()
         self.n_frequencies = int(math.log(max_res / min_res, div_factor)) + 1
@@ -242,7 +237,7 @@ class SinusoidsEmbeddingNew(nn.Module):
 
     def forward(self, x):
         x = torch.sqrt(x + 1e-8)
-        emb = x * self.frequencies[None, :].to(x.device)
+        emb = x * self.frequencies[None, :]
         emb = torch.cat((emb.sin(), emb.cos()), dim=-1)
         return emb.detach()
 

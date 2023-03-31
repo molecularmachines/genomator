@@ -1,3 +1,4 @@
+import pytorch_lightning as pl
 import numpy as np
 import math
 import torch
@@ -116,7 +117,7 @@ def gaussian_KL_for_dimension(q_mu, q_sigma, p_mu, p_sigma, d):
     return d * torch.log(p_sigma / q_sigma) + 0.5 * (d * q_sigma**2 + mu_norm2) / (p_sigma**2) - 0.5 * d
 
 
-class PositiveLinear(torch.nn.Module):
+class PositiveLinear(pl.LightningModule):
     """Linear layer with weights forced to be positive."""
 
     def __init__(self, in_features: int, out_features: int, bias: bool = True,
