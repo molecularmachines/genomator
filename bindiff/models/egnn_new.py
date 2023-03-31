@@ -1,10 +1,9 @@
-import pytorch_lightning as pl
 from torch import nn
 import torch
 import math
 
 
-class GCL(pl.LightningModule):
+class GCL(nn.Module):
     def __init__(self, input_nf, output_nf, hidden_nf, normalization_factor, aggregation_method,
                  edges_in_d=0, nodes_att_dim=0, act_fn=nn.SiLU(), attention=False):
         super(GCL, self).__init__()
@@ -67,7 +66,7 @@ class GCL(pl.LightningModule):
         return h, mij
 
 
-class EquivariantUpdate(pl.LightningModule):
+class EquivariantUpdate(nn.Module):
     def __init__(self, hidden_nf, normalization_factor, aggregation_method,
                  edges_in_d=1, act_fn=nn.SiLU(), tanh=False, coords_range=10.0):
         super(EquivariantUpdate, self).__init__()
@@ -107,7 +106,7 @@ class EquivariantUpdate(pl.LightningModule):
         return coord
 
 
-class EquivariantBlock(pl.LightningModule):
+class EquivariantBlock(nn.Module):
     def __init__(self, hidden_nf, edge_feat_nf=2, act_fn=nn.SiLU(), n_layers=2, attention=True,
                  norm_diff=True, tanh=False, coords_range=15, norm_constant=1, sin_embedding=None,
                  normalization_factor=100, aggregation_method='sum'):
@@ -147,7 +146,7 @@ class EquivariantBlock(pl.LightningModule):
         return h, x
 
 
-class EGNN(pl.LightningModule):
+class EGNN(nn.Module):
     def __init__(self, in_node_nf, in_edge_nf, hidden_nf, act_fn=nn.SiLU(), n_layers=3, attention=False,
                  norm_diff=True, out_node_nf=None, tanh=False, coords_range=15, norm_constant=1, inv_sublayers=2,
                  sin_embedding=False, normalization_factor=100, aggregation_method='sum'):
@@ -195,7 +194,7 @@ class EGNN(pl.LightningModule):
         return h, x
 
 
-class GNN(pl.LightningModule):
+class GNN(nn.Module):
     def __init__(self, in_node_nf, in_edge_nf, hidden_nf, aggregation_method='sum',
                  act_fn=nn.SiLU(), n_layers=4, attention=False,
                  normalization_factor=1, out_node_nf=None):
@@ -228,7 +227,7 @@ class GNN(pl.LightningModule):
         return h
 
 
-class SinusoidsEmbeddingNew(pl.LightningModule):
+class SinusoidsEmbeddingNew(nn.Module):
     def __init__(self, max_res=15., min_res=15. / 2000., div_factor=4):
         super().__init__()
         self.n_frequencies = int(math.log(max_res / min_res, div_factor)) + 1

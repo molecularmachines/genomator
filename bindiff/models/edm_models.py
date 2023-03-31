@@ -1,11 +1,11 @@
-import pytorch_lightning as pl
 import torch
+from torch import nn
 from models.egnn_new import EGNN, GNN
 from sampling.diffusion_utils import remove_mean, remove_mean_with_mask
 import numpy as np
 
 
-class EGNN_dynamics_QM9(pl.LightningModule):
+class EGNN_dynamics_QM9(nn.Module):
     def __init__(self, in_node_nf, context_node_nf,
                  n_dims, hidden_nf=64,
                  act_fn=torch.nn.SiLU(), n_layers=2, attention=False,

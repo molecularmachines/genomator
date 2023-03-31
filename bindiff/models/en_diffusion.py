@@ -1,7 +1,7 @@
-import pytorch_lightning as pl
 import numpy as np
 import math
 import torch
+from torch import nn
 from models.edm_models import EGNN_dynamics_QM9
 from torch.nn import functional as F
 from sampling import diffusion_utils
@@ -117,7 +117,7 @@ def gaussian_KL_for_dimension(q_mu, q_sigma, p_mu, p_sigma, d):
     return d * torch.log(p_sigma / q_sigma) + 0.5 * (d * q_sigma**2 + mu_norm2) / (p_sigma**2) - 0.5 * d
 
 
-class PositiveLinear(pl.LightningModule):
+class PositiveLinear(nn.Module):
     """Linear layer with weights forced to be positive."""
 
     def __init__(self, in_features: int, out_features: int, bias: bool = True,
@@ -150,7 +150,7 @@ class PositiveLinear(pl.LightningModule):
         return F.linear(input, positive_weight, self.bias)
 
 
-class SinusoidalPosEmb(pl.LightningModule):
+class SinusoidalPosEmb(nn.Module):
     def __init__(self, dim):
         super().__init__()
         self.dim = dim
@@ -166,7 +166,7 @@ class SinusoidalPosEmb(pl.LightningModule):
         return emb
 
 
-class PredefinedNoiseSchedule(pl.LightningModule):
+class PredefinedNoiseSchedule(nn.Module):
     """
     Predefined noise schedule. Essentially creates a lookup array for predefined (non-learned) noise schedules.
     """
@@ -205,7 +205,7 @@ class PredefinedNoiseSchedule(pl.LightningModule):
         return self.gamma[t_int]
 
 
-class GammaNetwork(pl.LightningModule):
+class GammaNetwork(nn.Module):
     """The gamma network models a monotonic increasing function. Construction as in the VDM paper."""
 
     def __init__(self):
@@ -250,7 +250,7 @@ def cdf_standard_gaussian(x):
     return 0.5 * (1. + torch.erf(x / math.sqrt(2)))
 
 
-class EnVariationalDiffusion(pl.LightningModule):
+class EnVariationalDiffusion(nn.Module):
     """
     The E(n) Diffusion Module.
     """
