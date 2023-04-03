@@ -147,7 +147,7 @@ class PositiveLinear(nn.Module):
 
     def forward(self, x):
         positive_weight = softplus(self.weight)
-        x = x.device(positive_weight)
+        x = x.to(positive_weight.device)
         return F.linear(x, positive_weight, self.bias)
 
 

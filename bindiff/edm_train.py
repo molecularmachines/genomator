@@ -20,7 +20,7 @@ def cli_main():
     # args
     # ------------
     parser = ArgumentParser()
-    parser.add_argument('--batch_size', default=4, type=int)
+    parser.add_argument('--batch_size', default=2, type=int)
     parser.add_argument('--device', default='1', type=str)
     parser = pl.Trainer.add_argparse_args(parser)
     parser = EGNNDenoiser.add_model_specific_args(parser)
@@ -30,9 +30,9 @@ def cli_main():
     # ------------
     # data
     # ------------
-    TRAIN_DIR = "data/cath_sanity/train"
-    VAL_DIR = "data/cath_sanity/val"
-    TEST_DIR = "data/cath_sanity/test"
+    TRAIN_DIR = "data/single"
+    VAL_DIR = "data/single"
+    TEST_DIR = "data/single"
 
     transform = StandardizeTransform()
 
@@ -110,7 +110,7 @@ def cli_main():
     # ------------
     # testing
     # ------------
-    trainer.test(dataloaders=test_loader)
+    # trainer.test(dataloaders=test_loader)
 
 
 if __name__ == '__main__':
