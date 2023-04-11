@@ -1,6 +1,7 @@
 import torch
 import sampling.beta_schedule as beta_schedule
 from tqdm import tqdm
+from einops import repeat
 
 
 class Diffusion:
@@ -87,7 +88,8 @@ class Diffusion:
 
         # inference from the model
         _, prediction = model(seqs, coords, t, mask=masks)
-        pred_noise = prediction[masks]
+        mask = repeat(masks, "b s -> b s c", c=3)
+        pred_noise = prediction * mask
 
         # calculate mean based on the model prediction
         model_mean = sqrt_recip_alphas_t * (
@@ -117,7 +119,7 @@ class Diffusion:
             desc=desc,
             total=timesteps
         ):
-            ts = torch.full((b,), i)  # all samples same t
+            ts = torch.full((b,), i).to(coords)  # all samples same t
             res = self.p_sample(model, res, seqs, masks, ts, i)
             results.append(res)
 
