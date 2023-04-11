@@ -95,7 +95,7 @@ class EnDenoiser(pl.LightningModule):
         # create distance maps for sample and ground
         def distmap(coords):
             return (
-                rearrange(coords, "... i c -> i () c")
+                rearrange(coords, "... i c -> ... i () c")
                 - rearrange(coords, "... j c -> ... () j c")
             ).norm(dim=-1)
         distmap_pred = distmap(last_sample)
