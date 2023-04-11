@@ -84,6 +84,26 @@ class EnDenoiser(pl.LightningModule):
 
         return feats, prediction, loss
 
+    def distmap_score(self, x):
+        # sample with diffusion
+        coords, seq, masks = self.prepare_inputs(x)
+        model = self.transformer
+        timesteps = self.diffusion.timesteps
+        samples = self.diffusion.sample(model, x, timesteps)
+        last_sample = samples[-1]
+
+        # create distance maps for sample and ground
+        def distmap(coords):
+            return (
+                rearrange(coords, "... i c -> i () c")
+                - rearrange(coords, "... j c -> ... () j c")
+            ).norm(dim=-1)
+        distmap_pred = distmap(last_sample)
+        distmap_ground = distmap(coords)
+
+        # return the MSE for distance maps
+        return F.mse_loss(distmap_pred, distmap_ground)
+
     def training_step(self, batch, batch_idx):
         batch_size = batch.atom_coord.shape[0]
         feats, denoised, loss = self.step(batch)
@@ -93,7 +113,9 @@ class EnDenoiser(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         batch_size = batch.atom_coord.shape[0]
         feats, denoised, loss = self.step(batch)
+        distmap_loss = self.distmap_score(batch)
         self.log("val_loss", loss, batch_size=batch_size)
+        self.log("distmap_loss", distmap_loss, batch_size=batch_size)
         return loss
 
     def test_step(self, batch, batch_idx):

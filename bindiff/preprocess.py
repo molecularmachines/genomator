@@ -33,7 +33,7 @@ class DistributionNodes:
     def log_prob(self, batch_n_nodes):
         assert len(batch_n_nodes.size()) == 1
 
-        idcs = [self.keys.get(i.item(), 0) for i in batch_n_nodes]
+        idcs = [self.keys[i.item()] for i in batch_n_nodes]
         idcs = torch.tensor(idcs).to(batch_n_nodes.device)
         log_p = torch.log(self.prob + 1e-30)
         log_p = log_p.to(batch_n_nodes.device)
@@ -47,7 +47,9 @@ def get_dataset_info(dataset):
     for i in range(len(dataset)):
         protein = dataset[i]
         seqlen = len(protein.sequence)
-        n_nodes[seqlen] = n_nodes.get(seqlen, 0) + 1
+        backbone_atoms = 4
+        nodelen = seqlen * backbone_atoms
+        n_nodes[nodelen] = n_nodes.get(seqlen, 0) + 1
 
     return {
         'n_nodes': n_nodes

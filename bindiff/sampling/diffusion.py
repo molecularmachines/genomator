@@ -86,7 +86,7 @@ class Diffusion:
         sqrt_recip_alphas_t = self.extract(self.sqrt_recip_alphas, t, s)
 
         # inference from the model
-        _, prediction = model(seqs, coords, t, mask=masks)
+        _, prediction = model.transformer(seqs, coords, t, mask=masks)
         pred_noise = prediction[masks]
 
         # calculate mean based on the model prediction
@@ -104,7 +104,7 @@ class Diffusion:
 
     @torch.no_grad()
     def sample(self, model, x, timesteps):
-        coords, seqs, masks = self.prepare_inputs(x)
+        coords, seqs, masks = model.prepare_inputs(x)
         b = coords.size(0)
 
         # start with random gaussian noise
