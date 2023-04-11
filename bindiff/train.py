@@ -22,6 +22,9 @@ def cli_main():
     parser = ArgumentParser()
     parser.add_argument('--batch_size', default=4, type=int)
     parser.add_argument('--device', default='1', type=str)
+    parser.add_argument('--train_path', default="data/single", type=str)
+    parser.add_argument('--val_path', default="data/single", type=str)
+    parser.add_argument('--test_path', default="data/single", type=str)
     parser = pl.Trainer.add_argparse_args(parser)
     parser = EnDenoiser.add_model_specific_args(parser)
     args = parser.parse_args()
@@ -30,14 +33,10 @@ def cli_main():
     # ------------
     # data
     # ------------
-    TRAIN_DIR = "data/cath_sanity/train"
-    VAL_DIR = "data/cath_sanity/val"
-    TEST_DIR = "data/cath_sanity/test"
-
     transform = StandardizeTransform()
 
     # train
-    train_dataset = ProteinDataset(TRAIN_DIR, transform=[transform], preload=True)
+    train_dataset = ProteinDataset(args.train_path, transform=[transform], preload=True)
     train_loader = DataLoader(
         train_dataset,
         collate_fn=PadBatch.collate,
@@ -45,7 +44,7 @@ def cli_main():
     )
 
     # validation
-    val_dataset = ProteinDataset(VAL_DIR, transform=[transform], preload=True)
+    val_dataset = ProteinDataset(args.val_path, transform=[transform], preload=True)
     val_loader = DataLoader(
         val_dataset,
         collate_fn=PadBatch.collate,
@@ -53,7 +52,7 @@ def cli_main():
     )
 
     # test
-    test_dataset = ProteinDataset(TEST_DIR, transform=[transform], preload=True)
+    test_dataset = ProteinDataset(args.test_path, transform=[transform], preload=True)
     test_loader = DataLoader(
         test_dataset,
         collate_fn=PadBatch.collate,

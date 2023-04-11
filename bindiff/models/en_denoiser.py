@@ -86,10 +86,10 @@ class EnDenoiser(pl.LightningModule):
 
     def distmap_score(self, x):
         # sample with diffusion
-        coords, seq, masks = self.prepare_inputs(x)
+        coords, seqs, masks = self.prepare_inputs(x)
         model = self.transformer
         timesteps = self.diffusion.timesteps
-        samples = self.diffusion.sample(model, x, timesteps)
+        samples = self.diffusion.sample(model, coords, seqs, masks, timesteps)
         last_sample = samples[-1]
 
         # create distance maps for sample and ground
