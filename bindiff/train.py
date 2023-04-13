@@ -60,20 +60,6 @@ def cli_main():
     )
 
     # ------------
-    # model
-    # ------------
-    model = EnDenoiser(
-        dim=args.dim,
-        dim_head=args.dim_head,
-        beta_small=args.beta_small,
-        beta_large=args.beta_large,
-        lr=args.lr,
-        depth=args.depth,
-        schedule=args.schedule,
-        timesteps=args.timesteps
-    )
-
-    # ------------
     # logging
     # ------------
     now = datetime.now()
@@ -93,8 +79,23 @@ def cli_main():
     checkpoint_callback = ModelCheckpoint(
         dirpath=checkpoint_path,
         save_top_k=2,
-        monitor="val_loss",
+        monitor="val_distmap_loss",
         mode="min"
+    )
+
+    # ------------
+    # model
+    # ------------
+    model = EnDenoiser(
+        dim=args.dim,
+        dim_head=args.dim_head,
+        beta_small=args.beta_small,
+        beta_large=args.beta_large,
+        lr=args.lr,
+        depth=args.depth,
+        schedule=args.schedule,
+        timesteps=args.timesteps,
+        ckpt_path=checkpoint_path
     )
 
     # ------------

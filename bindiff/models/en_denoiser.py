@@ -1,3 +1,4 @@
+import os
 import torch
 from torch import optim
 from argparse import ArgumentParser
@@ -6,6 +7,7 @@ import pytorch_lightning as pl
 from einops import rearrange, repeat
 from models.equitransformer import EnTransformer
 from sampling.diffusion import Diffusion
+from visualize import pred_to_pdb
 
 
 class EnDenoiser(pl.LightningModule):
@@ -20,6 +22,7 @@ class EnDenoiser(pl.LightningModule):
                  beta_small=2e-4,
                  beta_large=0.02,
                  timesteps=100,
+                 ckpt_path='',
                  schedule='linear',
                  lr=1e-4):
         super().__init__()
@@ -45,6 +48,7 @@ class EnDenoiser(pl.LightningModule):
         )
 
         self.lr = lr
+        self.ckpt_path = ckpt_path
 
     def prepare_inputs(self, x):
         # extract input
@@ -93,13 +97,27 @@ class EnDenoiser(pl.LightningModule):
         last_sample = samples[-1]
 
         # create distance maps for sample and ground
-        def distmap(coords):
+        def distmap(crd):
             return (
-                rearrange(coords, "... i c -> ... i () c")
-                - rearrange(coords, "... j c -> ... () j c")
+                rearrange(crd, "... i c -> ... i () c")
+                - rearrange(crd, "... j c -> ... () j c")
             ).norm(dim=-1)
+
         distmap_pred = distmap(last_sample)
         distmap_ground = distmap(coords)
+
+        # save prediction tensor
+        epoch = self.current_epoch
+        filename = f"pred_{epoch}.pt"
+        filepath = os.path.join(self.ckpt_path, filename)
+        torch.save(last_sample, filepath)
+
+        # save prediction as PDB file
+        pdb_filename = f"pred_{epoch}.pdb"
+        pdb_filepath = os.path.join(self.ckpt_path, pdb_filename)
+        pred_coord = last_sample[0]
+        pred_seq = str(x.sequence[0])
+        pred_to_pdb(pred_coord, pred_seq, pdb_filepath)
 
         # return the MSE for distance maps
         return F.mse_loss(distmap_pred, distmap_ground)
@@ -115,7 +133,7 @@ class EnDenoiser(pl.LightningModule):
         feats, denoised, loss = self.step(batch)
         distmap_loss = self.distmap_score(batch)
         self.log("val_loss", loss, batch_size=batch_size)
-        self.log("distmap_loss", distmap_loss, batch_size=batch_size)
+        self.log("val_distmap_loss", distmap_loss, batch_size=batch_size)
         return loss
 
     def test_step(self, batch, batch_idx):

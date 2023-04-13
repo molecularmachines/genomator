@@ -1,5 +1,6 @@
 import torch
 from sidechainnet.utils.sequence import ProteinVocabulary, ONE_TO_THREE_LETTER_MAP
+from einops import rearrange
 
 
 def backbone_to_pdb(coords, seq, pdb_fname, num_backbone_atoms=4, save=True):
@@ -61,6 +62,24 @@ def backbones_to_animation(coords_list, seq, pdb_fname, num_backbone_atoms=4):
             f.write("ENDMDL\n")
     print(f"File {pdb_fname} has been saved.")
     return pdb_fname
+
+
+def rescale_protein(coords, std_const=9.0):
+    return std_const * coords
+
+
+def rearrange_coords(coords, num_backbone=4):
+    new_coords = coords[:, :num_backbone, :]
+    new_coords = rearrange(new_coords, "s b c -> (s b) c")
+    return new_coords
+
+
+def pred_to_pdb(coord, seq, pdb_fname, rearrange=False):
+    num_backbone = 4
+    if rearrange:
+        coord = rearrange_coords(coord, num_backbone)
+    coord = rescale_protein(coord)
+    backbone_to_pdb(coord, seq, pdb_fname, num_backbone)
 
 
 if __name__ == "__main__":
