@@ -6,6 +6,7 @@ from pytorch_lightning.callbacks import ModelCheckpoint
 from preprocess import StandardizeTransform
 from models.en_denoiser import EnDenoiser
 from moleculib.protein.dataset import ProteinDataset
+from moleculib.protein.transform import ProteinCrop
 from moleculib.protein.batch import PadBatch
 from torch.utils.data import DataLoader
 from aim.pytorch_lightning import AimLogger
@@ -33,10 +34,10 @@ def cli_main():
     # ------------
     # data
     # ------------
-    transform = StandardizeTransform()
+    transform = [ProteinCrop(crop_size=32), StandardizeTransform()]
 
     # train
-    train_dataset = ProteinDataset(args.train_path, transform=[transform], preload=True)
+    train_dataset = ProteinDataset(args.train_path, transform=transform, preload=True)
     train_loader = DataLoader(
         train_dataset,
         collate_fn=PadBatch.collate,
@@ -44,7 +45,7 @@ def cli_main():
     )
 
     # validation
-    val_dataset = ProteinDataset(args.val_path, transform=[transform], preload=True)
+    val_dataset = ProteinDataset(args.val_path, transform=transform, preload=True)
     val_loader = DataLoader(
         val_dataset,
         collate_fn=PadBatch.collate,
@@ -52,7 +53,7 @@ def cli_main():
     )
 
     # test
-    test_dataset = ProteinDataset(args.test_path, transform=[transform], preload=True)
+    test_dataset = ProteinDataset(args.test_path, transform=transform, preload=True)
     test_loader = DataLoader(
         test_dataset,
         collate_fn=PadBatch.collate,
