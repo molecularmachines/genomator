@@ -73,7 +73,7 @@ class Diffusion:
         scaled_input = sqrt_alphas_cumprod_t * x_start
         noised_x = scaled_input + scaled_noise
 
-        return noised_x, scaled_noise
+        return noised_x, noise
 
     @torch.no_grad()
     def p_sample(self, model, coords, seqs, masks, t, t_index):

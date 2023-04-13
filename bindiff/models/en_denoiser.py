@@ -130,10 +130,10 @@ class EnDenoiser(pl.LightningModule):
     @staticmethod
     def add_model_specific_args(parent_parser):
         parser = ArgumentParser(parents=[parent_parser], add_help=False)
-        parser.add_argument('--lr', type=float, default=1e-4)
+        parser.add_argument('--lr', type=float, default=1e-5)
         parser.add_argument('--beta_small', type=float, default=2e-4)
         parser.add_argument('--beta_large', type=float, default=0.02)
-        parser.add_argument('--dim', type=int, default=64)
+        parser.add_argument('--dim', type=int, default=128)
         parser.add_argument('--dim_head', type=int, default=64)
         parser.add_argument('--depth', type=int, default=8)
         parser.add_argument('--timesteps', type=int, default=100)
