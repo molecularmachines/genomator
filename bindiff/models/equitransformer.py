@@ -464,6 +464,7 @@ class EnTransformer(nn.Module):
     ):
         b = feats.shape[0]
         t = self.time_mlp(timesteps)
+        source_coors = coors
 
         if exists(self.token_emb):
             feats = self.token_emb(feats)
@@ -514,4 +515,4 @@ class EnTransformer(nn.Module):
         if return_coor_changes:
             return feats, coors, coor_changes
 
-        return feats, coors
+        return feats, (coors - source_coors)

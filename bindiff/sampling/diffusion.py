@@ -93,7 +93,7 @@ class Diffusion:
 
         # calculate mean based on the model prediction
         model_mean = sqrt_recip_alphas_t * (
-            coords - betas_t * pred_noise / sqrt_one_minus_alphas_cumprod_t
+            coords - betas_t * pred_noise
         )
 
         if t_index == 0:
