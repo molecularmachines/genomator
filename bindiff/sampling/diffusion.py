@@ -73,7 +73,7 @@ class Diffusion:
         scaled_input = sqrt_alphas_cumprod_t * x_start
         noised_x = scaled_input + scaled_noise
 
-        return noised_x, scaled_noise
+        return noised_x, noise 
 
     @torch.no_grad()
     def p_sample(self, model, coords, seqs, masks, t, t_index):
@@ -93,7 +93,7 @@ class Diffusion:
 
         # calculate mean based on the model prediction
         model_mean = sqrt_recip_alphas_t * (
-            coords - betas_t * pred_noise
+            coords - betas_t * pred_noise / sqrt_one_minus_alphas_cumprod_t
         )
 
         if t_index == 0:
