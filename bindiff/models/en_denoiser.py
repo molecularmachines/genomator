@@ -119,6 +119,11 @@ class EnDenoiser(pl.LightningModule):
         pred_seq = str(x.sequence[0])
         pred_to_pdb(pred_coord, pred_seq, pdb_filepath)
 
+        # save reference
+        ref_fname = "ref.pt"
+        ref_filepath = os.path.join(self.ckpt_path, ref_fname)
+        torch.save(coords, ref_filepath)
+
         # return the MSE for distance maps
         return F.mse_loss(distmap_pred, distmap_ground)
 
