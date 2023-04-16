@@ -1,3 +1,4 @@
+import random
 import os
 import torch
 from torch import optim
@@ -22,6 +23,9 @@ class EnDenoiser(pl.LightningModule):
                  beta_small=2e-4,
                  beta_large=0.02,
                  timesteps=100,
+                 bb_start=1,
+                 bb_end=2,
+                 trim=5,
                  ckpt_path='',
                  schedule='linear',
                  lr=1e-4):
@@ -29,6 +33,9 @@ class EnDenoiser(pl.LightningModule):
 
         torch.set_default_dtype(torch.float64)
         self.save_hyperparameters()
+
+        if neighbors > trim and trim > 0:
+            neighbors = trim - 1
 
         self.transformer = EnTransformer(
             num_tokens=23,
@@ -47,6 +54,9 @@ class EnDenoiser(pl.LightningModule):
             schedule=schedule
         )
 
+        self.bb_start = bb_start
+        self.bb_end = bb_end
+        self.trim = trim
         self.lr = lr
         self.ckpt_path = ckpt_path
 
@@ -58,13 +68,14 @@ class EnDenoiser(pl.LightningModule):
         coords = coords.type(torch.float64)
 
         # keeping only the backbone coordinates
-        coords = coords[:, :, 0:4, :]
-        masks = masks[:, :, 0:4]
+        coords = coords[:, :self.trim, self.bb_start:self.bb_end, :]
+        masks = masks[:, :self.trim, self.bb_start:self.bb_end]
         coords = rearrange(coords, 'b l s c -> b (l s) c')
         masks = rearrange(masks, 'b l s -> b (l s)')
 
         # assign sequence token to each of the backbone atoms
-        seq = repeat(seqs, 'b n -> b (n c)', c=4)
+        seqs = seqs[:, :self.trim]
+        seq = repeat(seqs, 'b n -> b (n c)', c=(self.bb_end - self.bb_start))
 
         return coords, seq, masks
 
@@ -73,7 +84,8 @@ class EnDenoiser(pl.LightningModule):
 
         # noise with random amount
         s = coords.shape[0]
-        ts = torch.randint(0, self.diffusion.timesteps, [s]).to(coords)
+        t = random.randint(0, self.diffusion.timesteps - 1)
+        ts = torch.full((s,), t).to(coords)  # all samples same t
 
         # forward diffusion
         noised_coords, noise = self.diffusion.q_sample(coords, ts)
@@ -86,7 +98,7 @@ class EnDenoiser(pl.LightningModule):
         # loss between original noise and prediction
         loss = F.mse_loss(prediction[mask], noise[mask])
 
-        return feats, prediction, loss
+        return feats, prediction, loss, t
 
     def distmap_score(self, x):
         # sample with diffusion
@@ -116,8 +128,9 @@ class EnDenoiser(pl.LightningModule):
         pdb_filename = f"pred_{epoch}.pdb"
         pdb_filepath = os.path.join(self.ckpt_path, pdb_filename)
         pred_coord = last_sample[0]
-        pred_seq = str(x.sequence[0])
-        pred_to_pdb(pred_coord, pred_seq, pdb_filepath)
+        pred_seq = str(x.sequence[0][:self.trim])
+        bb_start, bb_end = self.bb_start, self.bb_end
+        pred_to_pdb(pred_coord, pred_seq, pdb_filepath, bb_start, bb_end)
 
         # save reference
         ref_fname = "ref.pt"
@@ -129,20 +142,22 @@ class EnDenoiser(pl.LightningModule):
 
     def training_step(self, batch, batch_idx):
         batch_size = batch.atom_coord.shape[0]
-        feats, denoised, loss = self.step(batch)
-        self.log("train_loss", loss, batch_size=batch_size)
+        feats, denoised, loss, t = self.step(batch)
+        quantile = int((t / self.diffusion.timesteps * 100) // 10)
+        self.log(f"train_loss_q{quantile}", loss, batch_size=batch_size)
         return loss
 
     def validation_step(self, batch, batch_idx):
         batch_size = batch.atom_coord.shape[0]
-        feats, denoised, loss = self.step(batch)
+        feats, denoised, loss, t = self.step(batch)
         distmap_loss = self.distmap_score(batch)
-        self.log("val_loss", loss, batch_size=batch_size)
+        quantile = int((t / self.diffusion.timesteps * 100) // 10)
+        self.log(f"val_loss_q{quantile}", loss, batch_size=batch_size)
         self.log("val_distmap_loss", distmap_loss, batch_size=batch_size)
         return loss
 
     def test_step(self, batch, batch_idx):
-        feats, denoised, loss = self.step(batch)
+        feats, denoised, loss, t = self.step(batch)
         batch_size = batch.atom_coord.shape[0]
         self.log("test_loss", loss, batch_size=batch_size)
         return loss

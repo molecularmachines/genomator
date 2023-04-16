@@ -3,10 +3,11 @@ from sidechainnet.utils.sequence import ProteinVocabulary, ONE_TO_THREE_LETTER_M
 from einops import rearrange
 
 
-def backbone_to_pdb(coords, seq, pdb_fname, num_backbone_atoms=4, save=True):
+def backbone_to_pdb(coords, seq, pdb_fname, bb_start=1, bb_end=2, save=True):
+    num_backbone_atoms = bb_end - bb_start
     assert num_backbone_atoms <= 4 and num_backbone_atoms > 0
     vocab = ProteinVocabulary()
-    backbone_atoms = ['N', 'CA', 'C', 'O'][:num_backbone_atoms]
+    backbone_atoms = ['N', 'CA', 'C', 'O'][bb_start:bb_end]
     seq_str = seq if type(seq) is str else vocab.ints2str(seq)
     assert len(coords) == len(seq_str) * num_backbone_atoms
 
@@ -68,18 +69,17 @@ def rescale_protein(coords, std_const=9.0):
     return std_const * coords
 
 
-def rearrange_coords(coords, num_backbone=4):
-    new_coords = coords[:, :num_backbone, :]
+def rearrange_coords(coords, bb_start, bb_end):
+    new_coords = coords[:, bb_start:bb_end, :]
     new_coords = rearrange(new_coords, "s b c -> (s b) c")
     return new_coords
 
 
-def pred_to_pdb(coord, seq, pdb_fname, rearrange=False):
-    num_backbone = 4
+def pred_to_pdb(coord, seq, pdb_fname, bb_start, bb_end, rearrange=False):
     if rearrange:
-        coord = rearrange_coords(coord, num_backbone)
+        coord = rearrange_coords(coord, bb_start, bb_end)
     coord = rescale_protein(coord)
-    backbone_to_pdb(coord, seq, pdb_fname, num_backbone)
+    backbone_to_pdb(coord, seq, pdb_fname, bb_start, bb_end)
 
 
 if __name__ == "__main__":
