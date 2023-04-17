@@ -9,6 +9,7 @@ from einops import rearrange, repeat
 from models.equitransformer import EnTransformer
 from sampling.diffusion import Diffusion
 from visualize import pred_to_pdb
+from utils import calc_tm_score, calc_distmap_loss
 
 
 class EnDenoiser(pl.LightningModule):
@@ -100,7 +101,7 @@ class EnDenoiser(pl.LightningModule):
 
         return feats, prediction, loss, t
 
-    def distmap_score(self, x):
+    def score(self, x):
         # sample with diffusion
         coords, seqs, masks = self.prepare_inputs(x)
         model = self.transformer
@@ -108,18 +109,8 @@ class EnDenoiser(pl.LightningModule):
         samples = self.diffusion.sample(model, coords, seqs, masks, timesteps)
         last_sample = samples[-1]
 
-        # create distance maps for sample and ground
-        def distmap(crd):
-            return (
-                rearrange(crd, "... i c -> ... i () c")
-                - rearrange(crd, "... j c -> ... () j c")
-            ).norm(dim=-1)
-
-        distmap_pred = distmap(last_sample)
-        distmap_ground = distmap(coords)
-
         # save prediction tensor
-        epoch = self.current_epoch
+        epoch = self.current_epoch + 1
         filename = f"pred_{epoch}.pt"
         filepath = os.path.join(self.ckpt_path, filename)
         torch.save(last_sample, filepath)
@@ -137,8 +128,11 @@ class EnDenoiser(pl.LightningModule):
         ref_filepath = os.path.join(self.ckpt_path, ref_fname)
         torch.save(coords, ref_filepath)
 
-        # return the MSE for distance maps
-        return F.mse_loss(distmap_pred, distmap_ground)
+        # calculate validation metrics
+        breakpoint()
+        dist_loss = calc_distmap_loss(coords, last_sample)
+        _, tm_score = calc_tm_score(coords[0], last_sample[0], pred_seq, pred_seq)
+        return dist_loss, tm_score
 
     def training_step(self, batch, batch_idx):
         batch_size = batch.atom_coord.shape[0]
@@ -150,10 +144,10 @@ class EnDenoiser(pl.LightningModule):
     def validation_step(self, batch, batch_idx):
         batch_size = batch.atom_coord.shape[0]
         feats, denoised, loss, t = self.step(batch)
-        distmap_loss = self.distmap_score(batch)
-        quantile = int((t / self.diffusion.timesteps * 100) // 10)
-        self.log(f"val_loss_q{quantile}", loss, batch_size=batch_size)
+        distmap_loss, tm_score = self.score(batch)
+        self.log("val_loss", loss, batch_size=batch_size)
         self.log("val_distmap_loss", distmap_loss, batch_size=batch_size)
+        self.log("val_tm_score", tm_score, batch_size=batch_size)
         return loss
 
     def test_step(self, batch, batch_idx):
