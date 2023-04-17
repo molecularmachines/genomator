@@ -129,7 +129,6 @@ class EnDenoiser(pl.LightningModule):
         torch.save(coords, ref_filepath)
 
         # calculate validation metrics
-        breakpoint()
         dist_loss = calc_distmap_loss(coords, last_sample)
         _, tm_score = calc_tm_score(coords[0], last_sample[0], pred_seq, pred_seq)
         return dist_loss, tm_score
