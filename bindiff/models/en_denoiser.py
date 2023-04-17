@@ -20,7 +20,7 @@ class EnDenoiser(pl.LightningModule):
                  heads=4,
                  depth=4,
                  rel_pos_emb=True,
-                 neighbors=16,
+                 neighbors=200,
                  beta_small=2e-4,
                  beta_large=0.02,
                  timesteps=100,
@@ -168,5 +168,6 @@ class EnDenoiser(pl.LightningModule):
         parser.add_argument('--dim_head', type=int, default=64)
         parser.add_argument('--depth', type=int, default=8)
         parser.add_argument('--timesteps', type=int, default=100)
+        parser.add_argument('--trim', type=int, default=5)
         parser.add_argument('--schedule', type=str, default='linear')
         return parser

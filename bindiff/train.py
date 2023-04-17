@@ -95,6 +95,7 @@ def cli_main():
         depth=args.depth,
         schedule=args.schedule,
         timesteps=args.timesteps,
+        trim=args.trim,
         ckpt_path=checkpoint_path
     )
 
