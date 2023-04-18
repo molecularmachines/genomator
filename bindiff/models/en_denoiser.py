@@ -20,7 +20,7 @@ class EnDenoiser(pl.LightningModule):
                  heads=4,
                  depth=4,
                  rel_pos_emb=True,
-                 neighbors=200,
+                 neighbors=1000,
                  beta_small=2e-4,
                  beta_large=0.02,
                  timesteps=100,
@@ -35,7 +35,7 @@ class EnDenoiser(pl.LightningModule):
         torch.set_default_dtype(torch.float64)
         self.save_hyperparameters()
 
-        if neighbors > trim and trim > 0:
+        if neighbors >= trim:
             neighbors = trim - 1
 
         self.transformer = EnTransformer(
@@ -130,7 +130,8 @@ class EnDenoiser(pl.LightningModule):
 
         # calculate validation metrics
         dist_loss = calc_distmap_loss(coords, last_sample)
-        _, tm_score = calc_tm_score(coords[0], last_sample[0], pred_seq, pred_seq)
+        tm1, tm2 = calc_tm_score(coords[0], last_sample[0], pred_seq, pred_seq)
+        tm_score = max(tm1, tm2)
         return dist_loss, tm_score
 
     def training_step(self, batch, batch_idx):
