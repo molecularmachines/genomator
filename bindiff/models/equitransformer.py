@@ -247,11 +247,11 @@ class EquivariantAttention(nn.Module):
         rel_dist = rearrange(rel_dist, 'b i j -> b 1 i j 1')
 
         if self.rel_pos_emb:
-            seq = torch.arange(n, device = device, dtype = q.dtype)
-            seq_target_pos = nbhd_indices if exists(nbhd_indices) else rearrange(seq, 'j -> 1 1 j')
-            seq_rel_dist = rearrange(seq, 'i -> 1 i 1') - seq_target_pos
-            seq_rel_dist = repeat(seq_rel_dist, 'b i j -> b 1 i j 1', b = b)
-            rel_dist = torch.cat((rel_dist, seq_rel_dist), dim = -1)
+            seq = torch.arange(n, device=device, dtype=q.dtype)
+            seq_target_pos = nbhd_indices if exists(nbhd_indices) else rearrange(seq, 'j -> 1 j')
+            seq_rel_dist = rearrange(seq, 'i -> i 1') - seq_target_pos
+            seq_rel_dist = repeat(seq_rel_dist, 'i j -> b 1 i j 1', b=b)
+            rel_dist = torch.cat((rel_dist, seq_rel_dist), dim=-1)
 
         qk_pos, value_pos = self.dynamic_pos_bias_mlp(rel_dist)
 
