@@ -1,9 +1,11 @@
 import torch
 from sidechainnet.utils.sequence import ProteinVocabulary, ONE_TO_THREE_LETTER_MAP
 from einops import rearrange
+from tmtools import tm_align
+import numpy as np
 
 
-def backbone_to_pdb(coords, seq, pdb_fname, bb_start=1, bb_end=2, save=True):
+def backbone_to_pdb(coords, seq, pdb_fname, chain="A", bb_start=1, bb_end=2, save=True):
     num_backbone_atoms = bb_end - bb_start
     assert num_backbone_atoms <= 4 and num_backbone_atoms > 0
     vocab = ProteinVocabulary()
@@ -25,7 +27,7 @@ def backbone_to_pdb(coords, seq, pdb_fname, bb_start=1, bb_end=2, save=True):
         line[6:11] = str(i + 1).rjust(5)
         line[12:16] = atom_type.ljust(4)
         line[17:20] = res.ljust(3)
-        line[21] = "A"
+        line[21] = chain
         line[22:26] = str(res_id + 1).rjust(4)
         line[30:38] = f'{x:.3f}'.rjust(8)
         line[38:46] = f'{y:.3f}'.rjust(8)
@@ -75,11 +77,34 @@ def rearrange_coords(coords, bb_start, bb_end):
     return new_coords
 
 
+def align_coords(coords, ref, seq):
+    align = tm_align(coords, ref, seq, seq)
+    return np.matmul(coords, align.u) + align.t
+
+
 def pred_to_pdb(coord, seq, pdb_fname, bb_start, bb_end, rearrange=False):
     if rearrange:
         coord = rearrange_coords(coord, bb_start, bb_end)
     coord = rescale_protein(coord)
     backbone_to_pdb(coord, seq, pdb_fname, bb_start, bb_end)
+
+
+def preds_to_pdb(crds, seq, pdb_fname, bb_start, bb_end, rearrange=False, align=True):
+    chains = "ABCDEFGHI"
+    pdb = ""
+    ref = crds[0]
+    for i, coord in enumerate(crds):
+        chain = chains[i]
+        if align and i > 0:
+            coord = align_coords(coord, ref, seq)
+        if rearrange:
+            coord = rearrange_coords(coord, bb_start, bb_end)
+        coord = rescale_protein(coord)
+        pdb += backbone_to_pdb(coord, seq, pdb_fname, chain, bb_start, bb_end, save=False)
+
+    with open(pdb_fname, "w") as f:
+        f.write(pdb)
+        print(f"File {pdb_fname} has been saved.")
 
 
 if __name__ == "__main__":
