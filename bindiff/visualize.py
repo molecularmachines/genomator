@@ -56,11 +56,11 @@ def backbone_to_pdb(coords, seq, pdb_fname, chain="A", bb_start=1, bb_end=2, sav
         return pdb_str
 
 
-def backbones_to_animation(coords_list, seq, pdb_fname, num_backbone_atoms=4):
+def backbones_to_animation(coords_list, seq, pdb_fname, bb_start=1, bb_end=2):
     with open(pdb_fname, "w") as f:
         for i, coords in enumerate(coords_list):
             f.write(f"MODEL {i+1}\n")
-            pdb_str = backbone_to_pdb(coords, seq, pdb_fname, num_backbone_atoms, save=False)
+            pdb_str = backbone_to_pdb(coords, seq, pdb_fname, bb_start=bb_start, bb_end=bb_end, save=False)
             f.write(pdb_str)
             f.write("ENDMDL\n")
     print(f"File {pdb_fname} has been saved.")
@@ -86,7 +86,7 @@ def pred_to_pdb(coord, seq, pdb_fname, bb_start, bb_end, rearrange=False):
     if rearrange:
         coord = rearrange_coords(coord, bb_start, bb_end)
     coord = rescale_protein(coord)
-    backbone_to_pdb(coord, seq, pdb_fname, bb_start, bb_end)
+    backbone_to_pdb(coord, seq, pdb_fname, bb_start=bb_start, bb_end=bb_end)
 
 
 def preds_to_pdb(crds, seq, pdb_fname, bb_start, bb_end, rearrange=False, align=True):
