@@ -110,7 +110,7 @@ class Diffusion:
 
         # start with random gaussian noise
         res = torch.randn_like(coords)
-        results = []
+        results = [res]
 
         # iterate over timesteps with p_sample
         desc = 'sampling loop time step'
@@ -120,7 +120,8 @@ class Diffusion:
             total=timesteps
         ):
             ts = torch.full((b,), i).to(coords)  # all samples same t
-            res = self.p_sample(model, res, seqs, masks, ts, i)
-            results.append(res)
+            inference = self.p_sample(model, res, seqs, masks, ts, i)
+            results.append(inference)
+            res = inference
 
         return results

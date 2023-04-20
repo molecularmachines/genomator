@@ -96,6 +96,7 @@ def cli_main():
         schedule=args.schedule,
         timesteps=args.timesteps,
         trim=args.trim,
+        verbose=args.verbose,
         ckpt_path=checkpoint_path
     )
 

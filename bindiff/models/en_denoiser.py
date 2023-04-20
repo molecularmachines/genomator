@@ -1,5 +1,7 @@
+import time
 import random
 import os
+import argparse
 import torch
 from torch import optim
 from argparse import ArgumentParser
@@ -29,6 +31,7 @@ class EnDenoiser(pl.LightningModule):
                  trim=128,
                  ckpt_path='',
                  schedule='linear',
+                 verbose=False,
                  lr=1e-4):
         super().__init__()
 
@@ -60,6 +63,8 @@ class EnDenoiser(pl.LightningModule):
         self.trim = trim
         self.lr = lr
         self.ckpt_path = ckpt_path
+        self.verbose = verbose
+        self.start_epoch_time = time.time()
 
     def prepare_inputs(self, x):
         # extract input
@@ -156,6 +161,15 @@ class EnDenoiser(pl.LightningModule):
         self.log("test_loss", loss, batch_size=batch_size)
         return loss
 
+    def on_train_epoch_start(self):
+        self.start_epoch_time = time.time()
+
+    def on_train_epoch_end(self):
+        now = time.time()
+        elapsed = now - self.start_epoch_time
+        if self.verbose:
+            print(f"Epoch took {elapsed:.2f} seconds")
+
     def configure_optimizers(self):
         return optim.AdamW(self.parameters(), lr=self.lr)
 
@@ -171,4 +185,5 @@ class EnDenoiser(pl.LightningModule):
         parser.add_argument('--timesteps', type=int, default=250)
         parser.add_argument('--trim', type=int, default=128)
         parser.add_argument('--schedule', type=str, default='linear')
+        parser.add_argument('--verbose', action=argparse.BooleanOptionalAction)
         return parser
