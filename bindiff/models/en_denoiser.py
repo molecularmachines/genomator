@@ -111,6 +111,7 @@ class EnDenoiser(pl.LightningModule):
         coords, seqs, masks = self.prepare_inputs(x)
         model = self.transformer
         timesteps = self.diffusion.timesteps
+        coords = coords[:1]
         samples = self.diffusion.sample(model, coords, seqs, masks, timesteps)
         last_sample = samples[-1]
 
@@ -183,7 +184,7 @@ class EnDenoiser(pl.LightningModule):
         parser.add_argument('--dim_head', type=int, default=64)
         parser.add_argument('--depth', type=int, default=8)
         parser.add_argument('--timesteps', type=int, default=250)
-        parser.add_argument('--trim', type=int, default=128)
+        parser.add_argument('--trim', type=int, default=-1)
         parser.add_argument('--schedule', type=str, default='linear')
         parser.add_argument('--verbose', action=argparse.BooleanOptionalAction)
         return parser
