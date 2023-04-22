@@ -1,5 +1,6 @@
 import torch
-from sidechainnet.utils.sequence import ProteinVocabulary, ONE_TO_THREE_LETTER_MAP
+from sidechainnet.utils.sequence import ProteinVocabulary
+from biotite.sequence import ProteinSequence
 from einops import rearrange
 from tmtools import tm_align
 import numpy as np
@@ -17,7 +18,9 @@ def backbone_to_pdb(coords, seq, pdb_fname, chain="A", bb_start=1, bb_end=2, sav
         # setup params
         atom_type = backbone_atoms[i % num_backbone_atoms]
         res_id = i // num_backbone_atoms
-        res = ONE_TO_THREE_LETTER_MAP[seq_str[res_id]]
+        res = ProteinSequence.convert_letter_1to3(seq_str[res_id])
+        if res == "UNK":
+            return ""
         res_atom = atom_type[0]
         x, y, z = crd
 
