@@ -42,7 +42,7 @@ class EnDenoiser(pl.LightningModule):
             neighbors = trim - 1
 
         self.transformer = EnTransformer(
-            num_tokens=23,
+            num_tokens=None,
             dim=dim,
             dim_head=dim_head,
             heads=heads,
