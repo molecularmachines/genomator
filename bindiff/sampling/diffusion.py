@@ -87,7 +87,7 @@ class Diffusion:
         sqrt_recip_alphas_t = self.extract(self.sqrt_recip_alphas, t, s)
 
         # inference from the model
-        _, prediction = model(seqs, coords, t, mask=masks)
+        _, prediction = model(coords, t, mask=masks)
         mask = repeat(masks, "b s -> b s c", c=3)
         pred_noise = prediction * mask
 

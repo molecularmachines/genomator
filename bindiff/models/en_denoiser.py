@@ -99,7 +99,7 @@ class EnDenoiser(pl.LightningModule):
         ts = ts.type(torch.float64)
 
         # predict noisy input with transformer
-        feats, prediction = self.transformer(seq, noised_coords, ts, mask=mask)
+        feats, prediction = self.transformer(noised_coords, ts, mask=mask)
 
         # loss between original noise and prediction
         loss = F.mse_loss(prediction[mask], noise[mask])

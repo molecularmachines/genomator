@@ -69,6 +69,7 @@ class EquivariantAttention(nn.Module):
     ):
         super().__init__()
         self.scale = scale
+        self.dim = dim
 
         # time embedding to out dim
         self.time_mlp = (
@@ -167,12 +168,19 @@ class EquivariantAttention(nn.Module):
         mask=None,
         adj_mat=None
     ):
-        b, n, d, h, num_nn, only_sparse_neighbors, valid_neighbor_radius, device = *feats.shape, self.heads, self.neighbors, self.only_sparse_neighbors, self.valid_neighbor_radius, feats.device
+        b, n, _ = coors.size()
+        h = self.heads
+        num_nn = self.neighbors
+        only_sparse_neighbors = self.only_sparse_neighbors
+        valid_neighbor_radius = self.valid_neighbor_radius
+        device = coors.device
 
+        # layer norm
         feats = self.norm(feats)
 
         assert not (only_sparse_neighbors and not exists(adj_mat)), 'adjacency matrix must be passed in if only_sparse_neighbors is turned on'
 
+        # calculate coords relative distances
         rel_coors = rearrange(coors, 'b i d -> b i () d') - rearrange(coors, 'b j d -> b () j d')
         rel_dist = rel_coors.norm(p=2, dim=-1)
 
@@ -181,6 +189,7 @@ class EquivariantAttention(nn.Module):
         nbhd_masks = None
         nbhd_ranking = rel_dist.clone()
 
+        # apply adjacency matrix
         if exists(adj_mat):
             if len(adj_mat.shape) == 2:
                 adj_mat = repeat(adj_mat, 'i j -> b i j', b=b)
@@ -405,6 +414,7 @@ class EnTransformer(nn.Module):
         if only_sparse_neighbors:
             num_adj_degrees = default(num_adj_degrees, 1)
 
+        self.dim = dim
         self.token_emb = nn.Embedding(num_tokens, dim) if exists(num_tokens) else None
         self.edge_emb = nn.Embedding(num_edge_tokens, edge_dim) if exists(num_edge_tokens) else None
 
@@ -453,7 +463,6 @@ class EnTransformer(nn.Module):
 
     def forward(
         self,
-        feats,
         coors,
         timesteps,
         edges=None,
@@ -462,11 +471,11 @@ class EnTransformer(nn.Module):
         return_coor_changes=False,
         **kwargs
     ):
-        b = feats.shape[0]
+        b, seqlen, _ = coors.shape
         t = self.time_mlp(timesteps)
 
-        if exists(self.token_emb):
-            feats = self.token_emb(feats)
+        # initialize features to ones
+        feats = torch.ones((b, seqlen, self.dim))
 
         if exists(self.edge_emb):
             assert exists(edges), 'edges must be passed in as (batch x seq x seq) indicating edge type'
