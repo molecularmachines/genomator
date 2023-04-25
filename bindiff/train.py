@@ -21,6 +21,7 @@ def cli_main():
     # ------------
     parser = ArgumentParser()
     parser.add_argument('--batch_size', default=4, type=int)
+    parser.add_argument('--checkpoint_every', default=100, type=int)
     parser.add_argument('--device', default='1', type=str)
     parser.add_argument('--train_path', default="data/single", type=str)
     parser.add_argument('--val_path', default="data/single", type=str)
@@ -76,11 +77,21 @@ def cli_main():
     if not os.path.exists(checkpoint_path):
         os.makedirs(checkpoint_path)
 
-    checkpoint_callback = ModelCheckpoint(
+    distmap_checkpoint = ModelCheckpoint(
+        filename="distmap-{epoch}-{step}",
         dirpath=checkpoint_path,
         save_top_k=2,
         monitor="val_distmap_loss",
         mode="min"
+    )
+
+    latest_chekpoint = ModelCheckpoint(
+        filename="latest-{epoch}-{step}",
+        dirpath=checkpoint_path,
+        every_n_epochs=args.checkpoint_every,
+        save_top_k=2,
+        monitor="step",
+        mode="max"
     )
 
     # ------------
@@ -112,7 +123,7 @@ def cli_main():
         accelerator=device,
         devices=devices,
         logger=logger,
-        callbacks=[checkpoint_callback]
+        callbacks=[distmap_checkpoint, latest_chekpoint]
     )
     trainer.fit(model, train_loader, val_loader)
 
