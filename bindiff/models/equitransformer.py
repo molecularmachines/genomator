@@ -475,7 +475,7 @@ class EnTransformer(nn.Module):
         t = self.time_mlp(timesteps)
 
         # initialize features to ones
-        feats = torch.ones((b, seqlen, self.dim))
+        feats = torch.ones((b, seqlen, self.dim)).to(coors)
 
         if exists(self.edge_emb):
             assert exists(edges), 'edges must be passed in as (batch x seq x seq) indicating edge type'
