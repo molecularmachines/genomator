@@ -95,7 +95,8 @@ class Diffusion:
 
         # inference from the model
         _, prediction = model(coords, t, context=seqs, mask=masks)
-        mask = repeat(masks, "b s -> b s c", c=3)
+        # mask = repeat(masks, "b s -> b s c", c=3)
+        mask = masks.unsqueeze(-1)
         pred_noise = prediction * mask
 
         # calculate mean based on the model prediction

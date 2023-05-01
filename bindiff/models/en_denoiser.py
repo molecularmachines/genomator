@@ -149,7 +149,7 @@ class EnDenoiser(pl.LightningModule):
         # calculate validation metrics
         ground = coords[0][:len(pred_seq)]
         pred = last_sample[0][:len(pred_seq)]
-        dist_loss = calc_distmap_loss(coords, last_sample)
+        dist_loss = calc_distmap_loss(ground, pred)
         tm1, tm2 = calc_tm_score(ground, pred, pred_seq, pred_seq)
         tm_score = max(tm1, tm2)
         return dist_loss, tm_score

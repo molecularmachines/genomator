@@ -514,7 +514,6 @@ class EnTransformer(nn.Module):
         # go through layers
         coor_changes = [coors]
         inp = (feats, coors, mask, edges, adj_mat)
-        coors_mask = mask.unsqueeze(-1)
 
         # if in training mode and checkpointing is designated, use checkpointing across blocks to save memory
         if self.training and self.checkpoint:
@@ -523,16 +522,11 @@ class EnTransformer(nn.Module):
             # iterate through blocks
             for layer in self.layers:
                 inp = layer(inp, time_emb=t)
-                # override context in coordinates
-                if exists(context):
-                    feats_, coors_, mask_, edges_, adj_mat_ = inp
-                    coors_ = coors_ * coors_mask + coors * ~coors_mask
-                    inp = (feats_, coors_, mask_, edges_, adj_mat_)
-
                 coor_changes.append(inp[1])  # append coordinates for visualization
 
         # return
         feats, coors, *_ = inp
+
         if return_coor_changes:
             return feats, coors, coor_changes
 
