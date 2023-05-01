@@ -465,6 +465,7 @@ class EnTransformer(nn.Module):
         self,
         coors,
         timesteps,
+        context=None,
         edges=None,
         mask=None,
         adj_mat=None,
@@ -476,6 +477,11 @@ class EnTransformer(nn.Module):
 
         # initialize features to ones
         feats = torch.ones((b, seqlen, self.dim)).to(coors)
+
+        # context token embeddings
+        if exists(self.token_emb) and exists(context):
+            context_seq_emb = self.token_emb(context)
+            feats = context_seq_emb.to(coors)
 
         if exists(self.edge_emb):
             assert exists(edges), 'edges must be passed in as (batch x seq x seq) indicating edge type'
@@ -508,6 +514,7 @@ class EnTransformer(nn.Module):
         # go through layers
         coor_changes = [coors]
         inp = (feats, coors, mask, edges, adj_mat)
+        coors_mask = mask.unsqueeze(-1)
 
         # if in training mode and checkpointing is designated, use checkpointing across blocks to save memory
         if self.training and self.checkpoint:
@@ -515,7 +522,13 @@ class EnTransformer(nn.Module):
         else:
             # iterate through blocks
             for layer in self.layers:
-                inp = layer(inp, time_emb = t)
+                inp = layer(inp, time_emb=t)
+                # override context in coordinates
+                if exists(context):
+                    feats_, coors_, mask_, edges_, adj_mat_ = inp
+                    coors_ = coors_ * coors_mask + coors * ~coors_mask
+                    inp = (feats_, coors_, mask_, edges_, adj_mat_)
+
                 coor_changes.append(inp[1])  # append coordinates for visualization
 
         # return

@@ -75,7 +75,6 @@ def trim_dataset(dataset, length=300):
 
 def center_coords(coords):
     # processing each protein coords at a time
-    assert len(coords.shape) == 3  # [SEQ_LEN, MAX_ATOMS, 3]
     assert coords.shape[-1] == 3
 
     # mask zero coords

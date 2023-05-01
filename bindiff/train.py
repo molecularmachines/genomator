@@ -5,15 +5,14 @@ import pytorch_lightning as pl
 from pytorch_lightning.callbacks import ModelCheckpoint
 from preprocess import StandardizeTransform
 from models.en_denoiser import EnDenoiser
-from moleculib.protein.dataset import ProteinDataset
-from moleculib.protein.batch import PadBatch
+from moleculib.protein.dataset import ProteinDNADataset
+from moleculib.protein.batch import PadBatch, PadComplexBatch
 from torch.utils.data import DataLoader
 from aim.pytorch_lightning import AimLogger
 from datetime import datetime
 
 
 def cli_main():
-    # TODO: does this affect random noise?
     pl.seed_everything(42)
 
     # ------------
@@ -23,9 +22,9 @@ def cli_main():
     parser.add_argument('--batch_size', default=4, type=int)
     parser.add_argument('--checkpoint_every', default=100, type=int)
     parser.add_argument('--device', default='1', type=str)
-    parser.add_argument('--train_path', default="data/single", type=str)
-    parser.add_argument('--val_path', default="data/single", type=str)
-    parser.add_argument('--test_path', default="data/single", type=str)
+    parser.add_argument('--train_path', default="data/protdna_single", type=str)
+    parser.add_argument('--val_path', default="data/protdna_single", type=str)
+    parser.add_argument('--test_path', default="data/protdna_single", type=str)
     parser = pl.Trainer.add_argparse_args(parser)
     parser = EnDenoiser.add_model_specific_args(parser)
     args = parser.parse_args()
@@ -35,28 +34,29 @@ def cli_main():
     # data
     # ------------
     transform = StandardizeTransform()
+    collate_fn = PadComplexBatch.collate
 
     # train
-    train_dataset = ProteinDataset(args.train_path, transform=[transform], preload=True)
+    train_dataset = ProteinDNADataset(args.train_path, transform=[transform], preload=True)
     train_loader = DataLoader(
         train_dataset,
-        collate_fn=PadBatch.collate,
+        collate_fn=collate_fn,
         batch_size=args.batch_size
     )
 
     # validation
-    val_dataset = ProteinDataset(args.val_path, transform=[transform], preload=True)
+    val_dataset = ProteinDNADataset(args.val_path, transform=[transform], preload=True)
     val_loader = DataLoader(
         val_dataset,
-        collate_fn=PadBatch.collate,
+        collate_fn=collate_fn,
         batch_size=args.batch_size
     )
 
     # test
-    test_dataset = ProteinDataset(args.test_path, transform=[transform], preload=True)
+    test_dataset = ProteinDNADataset(args.test_path, transform=[transform], preload=True)
     test_loader = DataLoader(
         test_dataset,
-        collate_fn=PadBatch.collate,
+        collate_fn=collate_fn,
         batch_size=args.batch_size
     )
 
@@ -108,6 +108,7 @@ def cli_main():
         timesteps=args.timesteps,
         trim=args.trim,
         verbose=args.verbose,
+        context=args.context,
         ckpt_path=checkpoint_path
     )
 

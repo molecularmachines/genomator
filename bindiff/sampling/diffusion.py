@@ -52,10 +52,14 @@ class Diffusion:
         out = out.reshape(batch_size, *((1,) * (len(x_shape) - 1)))
         return out.to(t.device)
 
-    def q_sample(self, x_start, t, noise=None):
+    def q_sample(self, x_start, mask, t, noise=None):
         # generate random noise
         if noise is None:
             noise = torch.randn_like(x_start).to(x_start)
+
+        # do not noise context
+        mask = mask.unsqueeze(-1)
+        noise = noise * mask
 
         # calculate alpha values for rescaling
         s = x_start.shape
@@ -73,6 +77,9 @@ class Diffusion:
         scaled_input = sqrt_alphas_cumprod_t * x_start
         noised_x = scaled_input + scaled_noise
 
+        # do not noise context
+        noised_x = noised_x * mask + x_start * ~mask
+
         return noised_x, noise
 
     @torch.no_grad()
@@ -87,7 +94,7 @@ class Diffusion:
         sqrt_recip_alphas_t = self.extract(self.sqrt_recip_alphas, t, s)
 
         # inference from the model
-        _, prediction = model(coords, t, mask=masks)
+        _, prediction = model(coords, t, context=seqs, mask=masks)
         mask = repeat(masks, "b s -> b s c", c=3)
         pred_noise = prediction * mask
 

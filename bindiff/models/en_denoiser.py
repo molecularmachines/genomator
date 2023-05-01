@@ -32,17 +32,19 @@ class EnDenoiser(pl.LightningModule):
                  ckpt_path='',
                  schedule='linear',
                  verbose=False,
+                 context=False,
                  lr=1e-4):
         super().__init__()
 
         torch.set_default_dtype(torch.float64)
         self.save_hyperparameters()
 
-        if neighbors >= trim and neighbors > 0 and trim > 0:
-            neighbors = trim - 1
+        if trim:
+            if neighbors >= trim and neighbors > 0 and trim > 0:
+                neighbors = trim - 1
 
         self.transformer = EnTransformer(
-            num_tokens=None,
+            num_tokens=6,
             dim=dim,
             dim_head=dim_head,
             heads=heads,
@@ -64,26 +66,30 @@ class EnDenoiser(pl.LightningModule):
         self.lr = lr
         self.ckpt_path = ckpt_path
         self.verbose = verbose
+        self.context = context
         self.start_epoch_time = time.time()
 
     def prepare_inputs(self, x):
         # extract input
-        seqs, coords, masks = x.residue_token, x.atom_coord, x.atom_mask
+        seqs, coords, masks = x.atom_token, x.atom_coord, x.atom_mask
 
         # type matching for transformer
         coords = coords.type(torch.float64)
+        seqs = seqs.type(torch.int64)
 
-        # keeping only the backbone coordinates
-        coords = coords[:, :self.trim, self.bb_start:self.bb_end, :]
-        masks = masks[:, :self.trim, self.bb_start:self.bb_end]
-        coords = rearrange(coords, 'b l s c -> b (l s) c')
-        masks = rearrange(masks, 'b l s -> b (l s)')
+        if not self.context:
+            # keeping only the backbone coordinates
+            coords = coords[:, :self.trim, self.bb_start:self.bb_end, :]
+            masks = masks[:, :self.trim, self.bb_start:self.bb_end]
+            coords = rearrange(coords, 'b l s c -> b (l s) c')
+            masks = rearrange(masks, 'b l s -> b (l s)')
 
-        # assign sequence token to each of the backbone atoms
-        seqs = seqs[:, :self.trim]
-        seq = repeat(seqs, 'b n -> b (n c)', c=(self.bb_end - self.bb_start))
+            # assign sequence token to each of the backbone atoms
+            seqs = seqs[:, :self.trim]
+            reps = self.bb_end - self.bb_start
+            seqs = repeat(seqs, 'b n -> b (n c)', c=reps)
 
-        return coords, seq, masks
+        return coords, seqs, masks
 
     def step(self, x):
         coords, seq, mask = self.prepare_inputs(x)
@@ -94,12 +100,16 @@ class EnDenoiser(pl.LightningModule):
         ts = torch.full((s,), t).to(coords)  # all samples same t
 
         # forward diffusion
-        noised_coords, noise = self.diffusion.q_sample(coords, ts)
-        noised_coords = noised_coords * mask.type(torch.float64)[..., None]
+        noised_coords, noise = self.diffusion.q_sample(coords, mask, ts)
+        if not self.context:
+            noised_coords = noised_coords * mask.type(torch.float64)[..., None]
         ts = ts.type(torch.float64)
 
         # predict noisy input with transformer
-        feats, prediction = self.transformer(noised_coords, ts, mask=mask)
+        feats, prediction = self.transformer(noised_coords,
+                                             ts,
+                                             context=seq,
+                                             mask=mask)
 
         # loss between original noise and prediction
         loss = F.mse_loss(prediction[mask], noise[mask])
@@ -113,6 +123,9 @@ class EnDenoiser(pl.LightningModule):
         timesteps = self.diffusion.timesteps
         samples = self.diffusion.sample(model, coords, seqs, masks, timesteps)
         last_sample = samples[-1]
+        dna = None
+        if self.context:
+            dna = str(x.dna_sequence[0])
 
         # save prediction tensor
         epoch = self.current_epoch + 1
@@ -126,7 +139,7 @@ class EnDenoiser(pl.LightningModule):
         pred_coord = last_sample[0]
         pred_seq = str(x.sequence[0][:self.trim])
         bb_start, bb_end = self.bb_start, self.bb_end
-        pred_to_pdb(pred_coord, pred_seq, pdb_filepath, bb_start, bb_end)
+        pred_to_pdb(pred_coord, pred_seq, pdb_filepath, bb_start, bb_end, dna=dna)
 
         # save reference
         ref_fname = "ref.pt"
@@ -134,6 +147,8 @@ class EnDenoiser(pl.LightningModule):
         torch.save(coords, ref_filepath)
 
         # calculate validation metrics
+        if self.context:
+            pred_seq += 2 * dna
         dist_loss = calc_distmap_loss(coords, last_sample)
         tm1, tm2 = calc_tm_score(coords[0], last_sample[0], pred_seq, pred_seq)
         tm_score = max(tm1, tm2)
@@ -183,7 +198,8 @@ class EnDenoiser(pl.LightningModule):
         parser.add_argument('--dim_head', type=int, default=64)
         parser.add_argument('--depth', type=int, default=8)
         parser.add_argument('--timesteps', type=int, default=250)
-        parser.add_argument('--trim', type=int, default=-1)
+        parser.add_argument('--trim', type=int, default=None)
         parser.add_argument('--schedule', type=str, default='linear')
+        parser.add_argument('--context', action=argparse.BooleanOptionalAction)
         parser.add_argument('--verbose', action=argparse.BooleanOptionalAction)
         return parser
