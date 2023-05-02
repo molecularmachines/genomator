@@ -115,6 +115,7 @@ class Diffusion:
     @torch.no_grad()
     def sample(self, model, coords, seqs, masks, timesteps):
         b = coords.size(0)
+        mask = masks.unsqueeze(-1)
 
         # start with random gaussian noise
         res = torch.randn_like(coords)
@@ -127,7 +128,11 @@ class Diffusion:
             desc=desc,
             total=timesteps
         ):
+            # equal timestep to all samples in batch
             ts = torch.full((b,), i).to(coords)  # all samples same t
+            # override with context
+            res = res * mask + coords * ~mask
+            # forward diffusion
             inference = self.p_sample(model, res, seqs, masks, ts, i)
             results.append(inference)
             res = inference
