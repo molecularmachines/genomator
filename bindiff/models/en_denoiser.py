@@ -93,6 +93,7 @@ class EnDenoiser(pl.LightningModule):
 
     def step(self, x):
         coords, seq, mask = self.prepare_inputs(x)
+        cmask = x.complex_mask
 
         # noise with random amount
         s = coords.shape[0]
@@ -112,7 +113,7 @@ class EnDenoiser(pl.LightningModule):
                                              mask=mask)
 
         # loss between original noise and prediction
-        loss = F.mse_loss(prediction[mask], noise[mask])
+        loss = F.mse_loss(prediction[cmask], noise[cmask])
 
         return feats, prediction, loss, t
 
