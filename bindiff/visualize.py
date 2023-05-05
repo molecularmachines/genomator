@@ -11,7 +11,7 @@ def backbone_to_pdb(coords, seq, pdb_fname, chain="A", bb_start=1, bb_end=2, dna
     dna_lines = None
     if dna is not None:
         dna_len = 2 * len(dna)
-        centroids = coords[:dna_len]
+        centroids = coords[-dna_len:]
         dna_lines, chain, start_idx = dna_to_pdb(dna, centroids)
         chain = chr(ord(chain) + 1)
         coords = coords[:-dna_len]
@@ -123,11 +123,11 @@ def dna_to_pdb(seq, centroids):
     return dna_lines, chain, idx
 
 
-def backbones_to_animation(coords_list, seq, pdb_fname, bb_start=1, bb_end=2):
+def backbones_to_animation(coords_list, seq, pdb_fname, bb_start=1, bb_end=2, dna=None):
     with open(pdb_fname, "w") as f:
         for i, coords in enumerate(coords_list):
             f.write(f"MODEL {i+1}\n")
-            pdb_str = backbone_to_pdb(coords, seq, pdb_fname, bb_start=bb_start, bb_end=bb_end, save=False)
+            pdb_str = backbone_to_pdb(coords, seq, pdb_fname, bb_start=bb_start, bb_end=bb_end, save=False, dna=dna)
             f.write(pdb_str)
             f.write("ENDMDL\n")
     print(f"File {pdb_fname} has been saved.")
