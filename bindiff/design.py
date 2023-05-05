@@ -4,6 +4,16 @@ from biotite.sequence.io import fasta
 import torch
 import esm
 
+from moleculib.protein.dataset import ProteinDNADataset
+from moleculib.protein.batch import PadComplexBatch
+from preprocess import StandardizeTransform
+from torch.utils.data import DataLoader
+from visualize import (
+    backbone_to_pdb,
+    backbones_to_animation,
+    rescale_protein
+)
+from models.en_denoiser import EnDenoiser
 
 OUTPUT_PATH = "pipeline"
 model = esm.pretrained.esmfold_v1()
@@ -85,15 +95,55 @@ def esmfold(fasta_path):
     return out_path
 
 
-def pipeline(pdb_path):
+def load_model_and_loader(checkpoint, data_dir):
+    transform = [StandardizeTransform()]
+    train_dataset = ProteinDNADataset(data_dir, transform=transform, preload=True)
+    loader = DataLoader(train_dataset, collate_fn=PadComplexBatch.collate, batch_size=2, shuffle=False)
+    model = EnDenoiser.load_from_checkpoint(checkpoint).eval()
+    return model, loader
+
+
+def inference(model, loader):
+    sample_path = os.path.join(OUTPUT_PATH, "sample.pdb")
+    animation_path = os.path.join(OUTPUT_PATH, "animation.pdb")
+
+    # load first batch
+    batch = next(iter(loader))
+    crd, seq, msk = model.prepare_inputs(batch)
+    seq_str = str(batch.sequence[0][:model.trim])
+    dna_seq = str(batch.dna_sequence[0])
+    cmask = batch.complex_mask
+
+    # run diffusion
+    results = model.diffusion.sample(model.transformer, crd, seq, msk, model.diffusion.timesteps)
+    results = [x[0][cmask[0]].squeeze(0) for x in results]
+
+    # save PDB files for diffusion steps
+    last_result = rescale_protein(results[-1])
+    backbone_to_pdb(last_result, seq_str, sample_path, dna=dna_seq)
+    rescaled_results = [rescale_protein(x) for x in results]
+    backbones_to_animation(rescaled_results, seq_str, animation_path, dna=dna_seq)
+    return sample_path
+
+
+def pipeline(checkpoint, data_dir):
+    # load the model and data loader
+    model, loader = load_model_and_loader(checkpoint, data_dir)
+
+    # run diffusion model to produce sample PDB
+    sample_pdb = inference(model, loader)
+
     # process PDB file into jsonl for MPNN
-    processed_file = process_pdb_for_mpnn(pdb_path)
+    processed_file = process_pdb_for_mpnn(sample_pdb)
+
     # run MPNN to get sequences
     sequence_fasta = mpnn(processed_file)
+
     # use ESMFold to fold sequences
     esmfold(sequence_fasta)
 
 
 if __name__ == "__main__":
-    pdb_path = "notebooks/ca.pdb"
-    pipeline(pdb_path)
+    data_dir = "data/protdna_8"
+    checkpoint = "protdna_double.ckpt"
+    pipeline(checkpoint, data_dir)
