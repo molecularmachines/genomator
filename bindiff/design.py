@@ -15,9 +15,10 @@ from visualize import (
 )
 from models.en_denoiser import EnDenoiser
 
+device = "cpu"
 OUTPUT_PATH = "pipeline"
 model = esm.pretrained.esmfold_v1()
-model = model.eval().cuda()
+model = model.eval().cuda().to(device)
 
 
 def process(args):
@@ -40,7 +41,7 @@ def process(args):
 
 
 def fname_from_path(path):
-    fname = os.path.basename(pdb_path)
+    fname = os.path.basename(path)
     return os.path.splitext(fname)[0]
 
 
@@ -69,7 +70,7 @@ def mpnn(jsonl_path):
         '--out_folder',
         f'{out_dir}',
         '--jsonl_path',
-        'ProteinMPNN/test.jsonl',
+        f'{jsonl_path}',
         '--ca_only'
     ]
     process(pmpnn_args)
@@ -99,7 +100,7 @@ def load_model_and_loader(checkpoint, data_dir):
     transform = [StandardizeTransform()]
     train_dataset = ProteinDNADataset(data_dir, transform=transform, preload=True)
     loader = DataLoader(train_dataset, collate_fn=PadComplexBatch.collate, batch_size=2, shuffle=False)
-    model = EnDenoiser.load_from_checkpoint(checkpoint).eval()
+    model = EnDenoiser.load_from_checkpoint(checkpoint).eval().to(device)
     return model, loader
 
 
@@ -144,6 +145,6 @@ def pipeline(checkpoint, data_dir):
 
 
 if __name__ == "__main__":
-    data_dir = "data/protdna_8"
+    data_dir = "data/protdna_double"
     checkpoint = "protdna_double.ckpt"
     pipeline(checkpoint, data_dir)

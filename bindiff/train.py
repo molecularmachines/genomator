@@ -22,9 +22,9 @@ def cli_main():
     parser.add_argument('--batch_size', default=4, type=int)
     parser.add_argument('--checkpoint_every', default=100, type=int)
     parser.add_argument('--device', default='1', type=str)
-    parser.add_argument('--train_path', default="data/protdna_single", type=str)
-    parser.add_argument('--val_path', default="data/protdna_single", type=str)
-    parser.add_argument('--test_path', default="data/protdna_single", type=str)
+    parser.add_argument('--train_path', default="data/l3", type=str)
+    parser.add_argument('--val_path', default="data/l3", type=str)
+    parser.add_argument('--test_path', default="data/l3", type=str)
     parser = pl.Trainer.add_argparse_args(parser)
     parser = EnDenoiser.add_model_specific_args(parser)
     args = parser.parse_args()
@@ -35,9 +35,13 @@ def cli_main():
     # ------------
     transform = StandardizeTransform()
     collate_fn = PadComplexBatch.collate
+    file_format = "pt"
 
     # train
-    train_dataset = ProteinDNADataset(args.train_path, transform=[transform], preload=True)
+    train_dataset = ProteinDNADataset(args.train_path,
+                                      file_format=file_format,
+                                      transform=[transform],
+                                      preload=True)
     train_loader = DataLoader(
         train_dataset,
         collate_fn=collate_fn,
@@ -45,7 +49,10 @@ def cli_main():
     )
 
     # validation
-    val_dataset = ProteinDNADataset(args.val_path, transform=[transform], preload=True)
+    val_dataset = ProteinDNADataset(args.val_path,
+                                    file_format=file_format,
+                                    transform=[transform],
+                                    preload=True)
     val_loader = DataLoader(
         val_dataset,
         collate_fn=collate_fn,
@@ -53,7 +60,10 @@ def cli_main():
     )
 
     # test
-    test_dataset = ProteinDNADataset(args.test_path, transform=[transform], preload=True)
+    test_dataset = ProteinDNADataset(args.test_path,
+                                     file_format=file_format,
+                                     transform=[transform],
+                                     preload=True)
     test_loader = DataLoader(
         test_dataset,
         collate_fn=collate_fn,
